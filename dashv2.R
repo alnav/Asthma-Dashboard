@@ -3,7 +3,6 @@ library(readr)
 library(ggplot2)
 library(dplyr)
 library(plotly)
-library(flexdashboard)
 
 # Load the dataset
 patient_data <- read_csv("patient_dataset.csv")
@@ -14,33 +13,30 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      width = 3,
       selectInput("patient_id", "Select Patient ID:", choices = unique(patient_data$ID)),
       h3("Patient Information"),
-      htmlOutput("patient_info"),
-      h3("Lung Function"),
-      htmlOutput("latest_lung_function"),
-      h3("Other Information"),
-      htmlOutput("latest_other_info")
+      htmlOutput("patient_info")
     ),
     
     mainPanel(
-      width = 9,
-      fluidRow(
-        column(12, align = "center",
-          h3("Risk of Exacerbation in Next Month"),
-          gaugeOutput("risk_gauge", width = "300px", height = "200px")
+      tabsetPanel(
+        tabPanel("Lung Function",
+          h3("Latest Lung Function"),
+          htmlOutput("latest_lung_function"),
+          h3("Lung Function Over Time"),
+          plotlyOutput("lung_function_plot")
+        ),
+        tabPanel("PEF",
+          h3("PEF Over Time"),
+          plotlyOutput("pef_plot")
+        ),
+        tabPanel("Eosinophils and FeNO",
+          h3("Latest Eosinophils and FeNO"),
+          htmlOutput("latest_other_info"),
+          h3("Eosinophils and FeNO Over Time"),
+          plotlyOutput("eosinophils_feno_plot")
         )
-      ),
-      
-      h3("Lung Function Over Time"),
-      plotlyOutput("lung_function_plot"),
-      
-      h3("PEF Over Time"),
-      plotlyOutput("pef_plot"),
-      
-      h3("Eosinophils and FeNO Over Time"),
-      plotlyOutput("eosinophils_feno_plot")
+      )
     )
   )
 )
@@ -48,24 +44,8 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output) {
   selected_patient <- reactive({
+    req(input$patient_id)
     patient_data[patient_data$ID == input$patient_id, ]
-  })
-  
-  output$risk_gauge <- renderGauge({
-    patient <- selected_patient() %>% tail(1)
-    # Placeholder risk calculation - replace with actual model
-    risk_value <- runif(1, 0, 100)
-    gauge(
-      risk_value, 
-      min = 0, 
-      max = 100, 
-      symbol = '%',
-      gaugeSectors(
-        success = c(0, 30),
-        warning = c(30, 70),
-        danger = c(70, 100)
-      )
-    )
   })
   
   output$patient_info <- renderUI({

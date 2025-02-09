@@ -3,7 +3,7 @@ import numpy as np
 def progress_patient(patient):
     # Helper function to change a value by +/- 10%
     def change_by_10_percent(value):
-        return value * (1 + np.random.uniform(-0.1, 0.1))
+        return round(value * (1 + np.random.uniform(-0.1, 0.1)),2)
     
     # List of keys to modify by +/- 10%
     keys_to_modify = [
