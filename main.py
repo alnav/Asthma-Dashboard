@@ -7,6 +7,7 @@ from ige_calculator import calculate_ige
 from pef_calculator import calculate_pef
 from treatment import assign_treatment
 from feno_calculator import calculate_feno
+from progress_patient import progress_patient
 
 def main():
     dataset = []
@@ -23,6 +24,11 @@ def main():
         calculate_feno(patient)
         assign_treatment(patient)
         dataset.append(patient)
+
+        # Progress the patient 5 times and add each progression to the dataset
+        for _ in range(5):
+            patient = progress_patient(patient)
+            dataset.append(patient)
 
     # Export dataset to CSV
     keys = dataset[0].keys()
