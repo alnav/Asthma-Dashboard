@@ -18,6 +18,7 @@ ui <- fluidPage(
       selectInput("patient_id", "Select Patient ID:", choices = unique(patient_data$ID)),
       h3("Patient Information"),
       htmlOutput("patient_info"),
+      actionButton("edit_smoking", "Edit Smoking Status"),
       h3("Lung Function"),
       htmlOutput("latest_lung_function"),
       h3("Other Information"),
@@ -27,15 +28,17 @@ ui <- fluidPage(
     mainPanel(
   width = 9,
   fluidRow(
-    column(12, align = "center",
+column(12, align = "center",
       h3("Risk of Exacerbation in Next Month"),
-      gaugeOutput("risk_gauge", width = "800px", height = "400px")
-    )
+      div(
+        style = "width: 100%; height: 200px; display: flex; justify-content: center; align-items: center;",
+        gaugeOutput("risk_gauge")
+    ))
   ),
   
   fluidRow(
     column(6,
-      h3("Lung Function Over Time"),
+      h3("FEV1 over time"),
       plotlyOutput("lung_function_plot")
     ),
     column(6,
@@ -59,7 +62,7 @@ ui <- fluidPage(
 )
 
 # Define server logic
-server <- function(input, output) {
+server <- function(input, output, session) {
   selected_patient <- reactive({
     patient_data[patient_data$ID == input$patient_id, ]
   })
@@ -68,18 +71,18 @@ server <- function(input, output) {
     patient <- selected_patient() %>% tail(1)
     # Placeholder risk calculation - replace with actual model
     risk_value <- runif(1, 0, 100)
-    gauge(
-      risk_value, 
-      min = 0, 
-      max = 100, 
-      symbol = '%',
-      gaugeSectors(
-        success = c(0, 30),
-        warning = c(30, 70),
-        danger = c(70, 100)
-      )
+  gauge(
+    risk_value, 
+    min = 0, 
+    max = 100, 
+    symbol = '%',
+    gaugeSectors(
+      success = c(0, 30),
+      warning = c(30, 70),
+      danger = c(70, 100)
     )
-  })
+  )
+})
   
   output$patient_info <- renderUI({
     patient <- selected_patient() %>% tail(1)
@@ -125,9 +128,9 @@ server <- function(input, output) {
     patient <- selected_patient()
     p <- ggplot(patient, aes(x = Age)) +
       #geom_line(aes(y = fvc_actual, color = "FVC Actual")) +
-      geom_line(aes(y = fev1_actual, color = "FEV1 Actual")) +
+      geom_line(aes(y = fev1_actual, color = "FEV1 (Litres)")) +
       #geom_line(aes(y = fev1_fvc_ratio, color = "FEV1/FVC Ratio")) +
-      labs(y = "Value", color = "Lung Function") +
+      labs(y = "FEV1", color = "") +
       theme_minimal()
     ggplotly(p)
   })
@@ -135,30 +138,75 @@ server <- function(input, output) {
   output$adherence_plot <- renderPlotly({
   patient <- selected_patient()
   p <- ggplot(patient, aes(x = Age)) +
-    geom_line(aes(y = Adherence, color = "Adherence")) +
+    geom_line(aes(y = Adherence, color = "Adherence (%)")) +
     labs(y = "Adherence (%)", color = "") +
+    scale_color_manual(values = c("Adherence (%)" = "#0000FF")) +
     ylim(0, 100) +
     theme_minimal()
   ggplotly(p)
-  })
+})
   
   output$pef_plot <- renderPlotly({
     patient <- selected_patient()
     p <- ggplot(patient, aes(x = Age)) +
-      geom_line(aes(y = pef, color = "PEF")) +
-      labs(y = "PEF", color = "PEF") +
+      geom_line(aes(y = pef, color = "PEF (L/s)")) +
+      labs(y = "PEF", color = "") +
       theme_minimal()
     ggplotly(p)
   })
   
   output$eosinophils_feno_plot <- renderPlotly({
-    patient <- selected_patient()
-    p <- ggplot(patient, aes(x = Age)) +
-      geom_line(aes(y = eosinophil_level, color = "Eosinophil Level")) +
-      geom_line(aes(y = FeNO_ppb, color = "FeNO (ppb)")) +
-      labs(y = "Value", color = "Eosinophils and FeNO") +
-      theme_minimal()
-    ggplotly(p)
+  patient <- selected_patient()
+  
+  plot_ly(data = patient) %>%
+    add_trace(
+      x = ~Age,
+      y = ~eosinophil_level,
+      name = "Eosinophil Level",
+      type = 'scatter',
+      mode = 'lines',
+      line = list(color = '#1f77b4')
+    ) %>%
+    add_trace(
+      x = ~Age,
+      y = ~FeNO_ppb,
+      name = "FeNO (ppb)",
+      yaxis = "y2",
+      type = 'scatter',
+      mode = 'lines',
+      line = list(color = '#ff7f0e')
+    ) %>%
+    layout(
+      yaxis = list(
+        title = "Eosinophil Level",
+        side = "left"
+      ),
+      yaxis2 = list(
+        title = "FeNO (ppb)",
+        overlaying = "y",
+        side = "right"
+      ),
+      showlegend = TRUE
+    )
+})
+
+observeEvent(input$edit_smoking, {
+    patient <- selected_patient() %>% tail(1)
+    showModal(modalDialog(
+      title = "Edit Smoking Status",
+      selectInput("new_smoking_status", "Smoking Status:",
+                 choices = c("Never Smoked", "Former Smoker", "Current Smoker"),
+                 selected = patient$`Smoking Status`),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("save_smoking", "Save")
+      )
+    ))
+  })
+  
+  observeEvent(input$save_smoking, {
+    patient_data$`Smoking Status`[patient_data$ID == input$patient_id] <- input$new_smoking_status
+    removeModal()
   })
 }
 
