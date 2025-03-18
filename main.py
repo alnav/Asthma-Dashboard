@@ -7,6 +7,7 @@ from ige_calculator import calculate_ige
 from pef_calculator import calculate_pef
 from treatment import assign_treatment
 from feno_calculator import calculate_feno
+from adherence_calculator import assign_adherence
 from progress_patient import progress_patient
 
 def main():
@@ -22,6 +23,7 @@ def main():
         calculate_ige(patient)
         calculate_pef(patient)
         calculate_feno(patient)
+        assign_adherence(patient)
         assign_treatment(patient)
         dataset.append(patient)
 

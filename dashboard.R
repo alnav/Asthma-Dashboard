@@ -25,22 +25,35 @@ ui <- fluidPage(
     ),
     
     mainPanel(
-      width = 9,
-      fluidRow(
-        column(12, align = "center",
-          h3("Risk of Exacerbation in Next Month"),
-          gaugeOutput("risk_gauge", width = "300px", height = "200px")
-        )
-      ),
-      
+  width = 9,
+  fluidRow(
+    column(12, align = "center",
+      h3("Risk of Exacerbation in Next Month"),
+      gaugeOutput("risk_gauge", width = "800px", height = "400px")
+    )
+  ),
+  
+  fluidRow(
+    column(6,
       h3("Lung Function Over Time"),
-      plotlyOutput("lung_function_plot"),
-      
+      plotlyOutput("lung_function_plot")
+    ),
+    column(6,
       h3("PEF Over Time"),
-      plotlyOutput("pef_plot"),
-      
-      h3("Eosinophils and FeNO Over Time"),
+      plotlyOutput("pef_plot")
+    )
+  ),
+
+    fluidRow(
+      column(6,
+        h3("Adherence Over Time"),
+        plotlyOutput("adherence_plot"),
+      ),
+      column(6,
+        h3("Eosinophils and FeNO Over Time"),
       plotlyOutput("eosinophils_feno_plot")
+      )
+    )  
     )
   )
 )
@@ -111,12 +124,22 @@ server <- function(input, output) {
   output$lung_function_plot <- renderPlotly({
     patient <- selected_patient()
     p <- ggplot(patient, aes(x = Age)) +
-      geom_line(aes(y = fvc_actual, color = "FVC Actual")) +
+      #geom_line(aes(y = fvc_actual, color = "FVC Actual")) +
       geom_line(aes(y = fev1_actual, color = "FEV1 Actual")) +
-      geom_line(aes(y = fev1_fvc_ratio, color = "FEV1/FVC Ratio")) +
+      #geom_line(aes(y = fev1_fvc_ratio, color = "FEV1/FVC Ratio")) +
       labs(y = "Value", color = "Lung Function") +
       theme_minimal()
     ggplotly(p)
+  })
+
+  output$adherence_plot <- renderPlotly({
+  patient <- selected_patient()
+  p <- ggplot(patient, aes(x = Age)) +
+    geom_line(aes(y = Adherence, color = "Adherence")) +
+    labs(y = "Adherence (%)", color = "") +
+    ylim(0, 100) +
+    theme_minimal()
+  ggplotly(p)
   })
   
   output$pef_plot <- renderPlotly({
