@@ -1,9 +1,9 @@
 # Define the treatment mapping
 asthma_treatment_map = {
-    "Intermittent": "PRN_LABA-ICS",  # As-needed low dose ICS-formoterol
-    "Mild": "LD_LABA-ICS",  # Low dose maintenance ICS-formoterol
-    "Moderate": "MD_LABA-ICS",  # Medium dose maintenance ICS-formoterol
-    "Severe": "HD_LABA-ICS_LAMA"  # High dose ICS-formoterol + LAMA
+    "Intermittent": "PRN LABA/ICS",  # As-needed low dose ICS-formoterol
+    "Mild": "Low Dose LABA/ICS",  # Low dose maintenance ICS-formoterol
+    "Moderate": "Medium Dose LABA/ICS",  # Medium dose maintenance ICS-formoterol
+    "Severe": "High Dose LABA/ICS + LAMA"  # High dose ICS-formoterol + LAMA
 }
 
 # Function to assign treatment based on severity

@@ -18,11 +18,24 @@ ui <- fluidPage(
       selectInput("patient_id", "Select Patient ID:", choices = unique(patient_data$ID)),
       h3("Patient Information"),
       htmlOutput("patient_info"),
-      actionButton("edit_smoking", "Edit Smoking Status"),
       h3("Lung Function"),
       htmlOutput("latest_lung_function"),
       h3("Other Information"),
-      htmlOutput("latest_other_info")
+      htmlOutput("latest_other_info"),
+      div(style = "position: absolute; bottom:0px; width: 50%;",
+    actionButton("edit_options", "Edit Patient",
+      style = "
+        background-color: #880808;
+        color: white;
+        font-weight: bold;
+        padding: 10px 15px;
+        width: 100%;
+        border-radius: 5px;
+        border: none;
+        transition: background-color 0.3s;
+      "
+    )
+  )
     ),
     
     mainPanel(
@@ -63,14 +76,89 @@ column(12, align = "center",
 
 # Define server logic
 server <- function(input, output, session) {
-  selected_patient <- reactive({
-    patient_data[patient_data$ID == input$patient_id, ]
-  })
+  # Create reactive values storage
+  rv <- reactiveValues(
+    patient_data = patient_data
+  )
   
-  output$risk_gauge <- renderGauge({
-    patient <- selected_patient() %>% tail(1)
-    # Placeholder risk calculation - replace with actual model
-    risk_value <- runif(1, 0, 100)
+  # Update selected_patient to use reactive data
+  selected_patient <- reactive({
+    rv$patient_data[rv$patient_data$ID == input$patient_id, ]
+  })
+
+  calculate_risk <- function(patient) {
+    # Print debug info
+  print(sprintf("FEV1: %f", patient$fev1_percent_predicted))
+  print(sprintf("Eos: %f", patient$eosinophil_level))
+  print(sprintf("IgE: %f", patient$total_ige))
+  print(sprintf("FeNO: %f", patient$FeNO_ppb))
+  print(sprintf("Adherence: %f", patient$Adherence))
+  print(sprintf("Smoking: %s", patient$`Smoking Status`))
+  print(sprintf("Severity: %s", patient$`Asthma Severity`))
+
+  # Coefficients
+  beta_0 <- -0 # Baseline risk
+  beta_fev1 <- -0.03  # Protective effect of higher FEV1 % predicted
+  beta_eos <- 0.001  # Higher eosinophils increase risk
+  beta_ige <- 0.001  # IgE contribution to risk 
+  beta_severity <- 1.2  # Severe asthma significantly increases risk
+  beta_smoking <- c(0.0, 0.5, 1.0)  # Coefficients for smoking status
+  beta_feno <- 0.01  # FeNO contribution to risk
+  beta_adherence <- -0.02  # Better adherence reduces risk
+  
+  # Input validation with defaults
+  fev1 <- ifelse(is.na(patient$fev1_percent_predicted), 80, patient$fev1_percent_predicted)
+  eos <- ifelse(is.na(patient$eosinophil_level), 150, patient$eosinophil_level)
+  ige <- ifelse(is.na(patient$total_ige), 100, patient$total_ige)
+  feno <- ifelse(is.na(patient$FeNO_ppb), 25, patient$FeNO_ppb)
+  adherence <- ifelse(is.na(patient$Adherence), 50, patient$Adherence)/100
+
+  # Convert categorical to numeric
+  smoking_numeric <- switch(patient$`Smoking Status`,
+    "Never Smoked" = 0,
+    "Former Smoker" = 1,
+    "Current Smoker" = 2,
+    0  # Default
+  )
+  
+  severity_numeric <- switch(patient$`Asthma Severity`,
+    "Mild" = 0,
+    "Moderate" = 1,
+    "Severe" = 2,
+    0  # Default
+  )  
+  # Calculate log odds
+  log_odds <- beta_0 +
+    beta_fev1 * patient$fev1_percent_predicted +
+    beta_eos * patient$eosinophil_level +
+    beta_ige * patient$total_ige +
+    beta_severity * severity_numeric +
+    beta_smoking[smoking_numeric + 1] +
+    beta_feno * patient$FeNO_ppb +
+    beta_adherence * patient$Adherence  # Convert to proportion
+    
+  # Print debug info
+  print(sprintf("Log odds: %f", log_odds))
+  
+  # Convert to probability
+  prob <- 1 / (1 + exp(-log_odds))
+  print(sprintf("Probability: %f", prob))
+  
+  return(prob * 100)
+}
+  
+# Update risk gauge:
+selected_patient <- reactive({
+  req(input$patient_id)
+  rv$patient_data[rv$patient_data$ID == input$patient_id, ]
+})
+
+# Update risk gauge
+output$risk_gauge <- renderGauge({
+  req(selected_patient())
+  patient <- selected_patient() %>% tail(1)
+  risk_value <- calculate_risk(patient)
+  
   gauge(
     risk_value, 
     min = 0, 
@@ -91,22 +179,53 @@ server <- function(input, output, session) {
       tags$p(paste("Age:", patient$Age)),
       tags$p(paste("Height (cm):", patient$`Height (cm)`)),
       tags$p(paste("Weight (kg):", patient$`Weight (kg)`)),
-      tags$p(paste("BMI:", patient$BMI)),
+      tags$p(HTML(paste(
+      "BMI:", 
+      sprintf(
+        "<span style='color: %s'>%.1f</span>", 
+        ifelse(patient$BMI > 30, "red",
+          ifelse(patient$BMI > 25, "#ff9100", "black")
+        ), 
+        patient$BMI
+      )
+    ))),
       tags$p(paste("Ethnicity:", patient$Ethnicity)),
-      tags$p(paste("Smoking Status:", patient$`Smoking Status`)),
+      tags$p(HTML(paste(
+      "Smoking Status:", 
+      sprintf(
+        "<span style='color: %s'>%s</span>",
+        ifelse(patient$`Smoking Status` == "Current Smoker", "red", "black"),
+        patient$`Smoking Status`
+      )
+    ))),
       tags$p(paste("Asthma Severity:", patient$`Asthma Severity`))
     )
   })
   
   output$latest_lung_function <- renderUI({
-    patient <- selected_patient() %>% tail(1)
-    tags$div(
-      tags$p(paste("FVC Actual:", patient$fvc_actual)),
-      tags$p(paste("FEV1 Actual:", patient$fev1_actual)),
-      tags$p(paste("FEV1/FVC Ratio:", patient$fev1_fvc_ratio)),
-      tags$p(paste("PEF:", patient$pef))
+  patient <- selected_patient()
+  latest <- tail(patient, 1)
+  previous <- tail(patient, 2)[1,]
+  
+  # Calculate FEV1 percent change
+  fev1_change <- if(nrow(patient) > 1) {
+    change <- ((latest$fev1_actual - previous$fev1_actual) / previous$fev1_actual) * 100
+    sprintf(
+      "<span style='color: %s'> (%+.1f%%)</span>",
+      ifelse(change >= 0, "green", "red"),
+      change
     )
-  })
+  } else {
+    ""
+  }
+  
+  tags$div(
+    tags$p(HTML(paste("FVC Actual:", latest$fvc_actual))),
+    tags$p(HTML(paste("FEV1 Actual:", latest$fev1_actual, fev1_change))),
+    tags$p(HTML(paste("FEV1/FVC Ratio:", latest$fev1_fvc_ratio))),
+    tags$p(HTML(paste("PEF:", latest$pef)))
+  )
+})
   
   output$latest_other_info <- renderUI({
     patient <- selected_patient() %>% tail(1)
@@ -135,7 +254,7 @@ server <- function(input, output, session) {
     ggplotly(p)
   })
 
-  output$adherence_plot <- renderPlotly({
+output$adherence_plot <- renderPlotly({
   patient <- selected_patient()
   p <- ggplot(patient, aes(x = Age)) +
     geom_line(aes(y = Adherence, color = "Adherence (%)")) +
@@ -190,24 +309,59 @@ server <- function(input, output, session) {
     )
 })
 
+observeEvent(input$edit_options, {
+  showModal(modalDialog(
+    title = "Edit Patient Options",
+    div(style = "text-align: center;",
+      actionButton("edit_smoking", "Edit Smoking Status", style = "margin: 5px;"),
+      actionButton("perfect_adherence", "Set Perfect Adherence", style = "margin: 5px;"),
+      actionButton("avoid_allergens", "Avoid Allergens", style = "margin: 5px;")
+    ),
+    footer = modalButton("Close")
+  ))
+})
+
 observeEvent(input$edit_smoking, {
-    patient <- selected_patient() %>% tail(1)
-    showModal(modalDialog(
-      title = "Edit Smoking Status",
-      selectInput("new_smoking_status", "Smoking Status:",
-                 choices = c("Never Smoked", "Former Smoker", "Current Smoker"),
-                 selected = patient$`Smoking Status`),
-      footer = tagList(
-        modalButton("Cancel"),
-        actionButton("save_smoking", "Save")
-      )
-    ))
-  })
-  
-  observeEvent(input$save_smoking, {
-    patient_data$`Smoking Status`[patient_data$ID == input$patient_id] <- input$new_smoking_status
-    removeModal()
-  })
+  removeModal()
+  patient <- selected_patient() %>% tail(1)
+  showModal(modalDialog(
+    title = "Edit Smoking Status",
+    selectInput("new_smoking_status", "Smoking Status:",
+               choices = c("Never Smoked", "Former Smoker", "Current Smoker"),
+               selected = patient$`Smoking Status`),
+    footer = tagList(
+      modalButton("Cancel"),
+      actionButton("save_smoking", "Save")
+    )
+  ))
+})
+
+observeEvent(input$perfect_adherence, {
+  removeModal()
+  last_row <- which(rv$patient_data$ID == input$patient_id)[length(which(rv$patient_data$ID == input$patient_id))]
+  rv$patient_data$Adherence[last_row] <- 100
+  showModal(modalDialog(
+    title = "Success",
+    "Last adherence value set to 100%",
+    footer = modalButton("Close")
+  ))
+})
+
+observeEvent(input$avoid_allergens, {
+  removeModal()
+  # Reduce all IgE values by 50%
+  allergen_cols <- c("ige_pollen", "ige_cats", "ige_dogs", "ige_mould", 
+                     "ige_grass", "ige_house_dust_mites")
+  for(col in allergen_cols) {
+    patient_data[[col]][patient_data$ID == input$patient_id] <- 
+      patient_data[[col]][patient_data$ID == input$patient_id] * 0.5
+  }
+  showModal(modalDialog(
+    title = "Success",
+    "Allergen exposure reduced by 50%",
+    footer = modalButton("Close")
+  ))
+})
 }
 
 # Run the application 

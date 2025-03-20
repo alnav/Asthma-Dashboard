@@ -1,6 +1,6 @@
 import numpy as np
 
-def estimate_exacerbation_risk(fev1_percent_pred, eosinophils, total_ige, asthma_severity, smoking_status, feno):
+def estimate_exacerbation_risk(fev1_percent_pred, eosinophils, total_ige, asthma_severity, smoking_status, feno, adherence):
     """
     Estimate the probability of an asthma exacerbation in the next month
     using a logistic regression-based approximation.
@@ -23,6 +23,7 @@ def estimate_exacerbation_risk(fev1_percent_pred, eosinophils, total_ige, asthma
     beta_severity = 1.2  # Severe asthma significantly increases risk
     beta_smoking = [0.0, 0.5, 1.0]  # Coefficients for smoking status
     beta_feno = 0.01  # FeNO contribution to risk
+    beta_adherence = -0.5  # Better adherence reduces
 
     # Compute the log-odds
     log_odds = (
@@ -33,6 +34,7 @@ def estimate_exacerbation_risk(fev1_percent_pred, eosinophils, total_ige, asthma
         + beta_severity * asthma_severity
         + np.dot(beta_smoking, smoking_status)
         + beta_feno * feno
+        + beta_adherence * adherence
     )
 
     # Convert to probability using logistic function
@@ -46,7 +48,8 @@ probability = estimate_exacerbation_risk(
     total_ige=20,  # From provided data
     asthma_severity=2,  # Severe = 3, Moderate = 2, Mild = 1
     smoking_status=[0,0,1], # One-hot encoded for current smoker
-    feno = 70.0  # From provided data
+    feno = 70.0, # From provided data
+    adherence=60.0  # From provided data
 )
 
 print(f"Estimated probability of exacerbation in next month: {probability:.2%}")

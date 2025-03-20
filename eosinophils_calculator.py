@@ -14,17 +14,17 @@ def calculate_eosinophils(patient):
     
     # Eosinophil levels based on asthma severity (example values)
     EOSINOPHIL_LEVELS = {
-        "Intermittent": 150,  # cells/µL
-        "Mild": 300,  # cells/µL
-        "Moderate": 450,  # cells/µL
-        "Severe": 600,  # cells/µL
+        "Intermittent": 0.2,  # cells/µL
+        "Mild": 0.4,  # cells/µL
+        "Moderate": 1,  # cells/µL
+        "Severe": 2,  # cells/µL
     }
 
     # Extract asthma severity
     asthma_severity = patient["Asthma Severity"]
 
     # Base eosinophil level
-    base_eosinophil_level = EOSINOPHIL_LEVELS.get(asthma_severity, 150)  # Default to 150 if severity not found
+    base_eosinophil_level = EOSINOPHIL_LEVELS.get(asthma_severity, 0.4)  # Default to 150 if severity not found
 
     # Introduce slight randomness around the base eosinophil level
     eosinophil_level = base_eosinophil_level + random.uniform(-0.1 * base_eosinophil_level, 0.1 * base_eosinophil_level)
