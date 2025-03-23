@@ -31,6 +31,18 @@ def progress_patient(patient):
         adherence_change = np.random.uniform(-20, 20)
         new_adherence = adherence + adherence_change
         new_patient["Adherence"] = round(min(max(new_adherence, 0), 100), 1)
+
+    # Modify ACT score based on adherence
+    current_act = patient.get("act_score", 20)  # Default 20 if not present
+    if adherence > 80:
+        act_change = np.random.uniform(0, 2)  # Improvement
+    elif 50 <= adherence <= 80:
+        act_change = np.random.uniform(-1, 1)  # Stable
+    else:
+        act_change = np.random.uniform(-2, 0)  # Decline
+        
+    new_act = round(min(max(current_act + act_change, 5), 25))
+    new_patient["act_score"] = new_act
     
     # Update other variables
     for key in keys_to_modify:
