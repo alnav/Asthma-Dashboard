@@ -18,6 +18,13 @@ ui <- fluidPage(
         "Select Patient ID:",
         choices = unique(patient_data$ID)
       ),
+      dateRangeInput("date_range",
+        "Select Date Range:",
+        start = min(patient_data$Date),
+        end = max(patient_data$Date),
+        min = min(patient_data$Date),
+        max = max(patient_data$Date)
+      ),
       h3("Patient", style = "font-weight: bold;"),
       h5("Name:", style = "font-weight: bold;"),
       h5("Date of Birth:", style = "font-weight: bold;"),
@@ -52,7 +59,7 @@ ui <- fluidPage(
       fluidRow(
         column(12,
           align = "center",
-          h3("Risk of Exacerbation in Next Month"),
+          h3("Risk of exacerbation in the next month"),
           div(
             style = "width: 100%;
             height: 200px;
@@ -348,6 +355,10 @@ server <- function(input, output, session) {
     patient <- selected_patient()
     p <- ggplot(patient, aes(x = Age)) +
       geom_line(aes(y = Adherence, color = "Adherence (%)")) +
+      geom_point(aes(y = Adherence), color = "#0000FF") +
+      geom_text(aes(y = Adherence + 10, label = sprintf("%.0f%%", Adherence)),
+        size = 3.5
+      ) +
       labs(y = "Adherence (%)", color = "") +
       scale_color_manual(values = c("Adherence (%)" = "#0000FF")) +
       ylim(0, 100) +
