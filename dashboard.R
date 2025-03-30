@@ -26,7 +26,11 @@ ui <- fluidPage(
         max = max(patient_data$Date)
       ),
       h3("Patient", style = "font-weight: bold;"),
-      h5("Name:", style = "font-weight: bold;"),
+      div(
+        style = "display: flex; align-items: center;",
+        h5("Name:", style = "font-weight: bold; margin-right: 5px;"),
+        htmlOutput("patient_name")
+      ),
       h5("Date of Birth:", style = "font-weight: bold;"),
       h5("NHS Number:", style = "font-weight: bold;"),
       tags$hr(style = "border-top: 1px solid #ddd; margin: 10px 0;"),
@@ -121,6 +125,11 @@ server <- function(input, output, session) {
   # Update selected_patient to use reactive data
   selected_patient <- reactive({
     rv$patient_data[rv$patient_data$ID == input$patient_id, ]
+  })
+
+  output$patient_name <- renderUI({
+    patient <- selected_patient() %>% tail(1)
+    tags$span(patient$Name)
   })
 
   calculate_risk <- function(patient) {
@@ -240,7 +249,9 @@ server <- function(input, output, session) {
           patient$`Smoking Status`
         )
       ))),
-      tags$p(paste("Asthma Severity:", patient$`Asthma Severity`))
+      tags$p(paste("Asthma Severity:", patient$`Asthma Severity`)),
+      tags$p(paste("Job:", patient$Job)),
+      tags$p(paste("Pets:", paste(patient$Pet, collapse = ", "))),
     )
   })
 
@@ -351,14 +362,64 @@ server <- function(input, output, session) {
           patient$ige_house_dust_mites
         )
       ))),
-          tags$p(HTML(paste(
-      sprintf(
-        "<span title='ACT Score: 5-15 (Poor), 16-19 (Not well), 20-25 (Well controlled)'>ACT Score: <span style='color: %s; font-weight: bold'>%s</span>/25</span>",
-        ifelse(patient$act_score >= 20, "green", 
-               ifelse(patient$act_score >= 16, "orange", "red")),
-        patient$act_score
-      )
-    ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='Normal range >0.35'>Pneumococcal Antibodies: <span style='color: %s'>%s</span></span>",
+          ifelse(patient$pneumococcal_abs < 0.35, "red", "black"),
+          patient$pneumococcal_abs
+        )
+      ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='Normal range >0.35'>Tetanus Antibodies: <span style='color: %s'>%s</span></span>",
+          ifelse(patient$tetanus_abs < 0.35, "red", "black"),
+          patient$tetanus_abs
+        )
+      ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='Normal range 0.9-1.8 g/L'>C3: <span style='color: %s'>%s</span> g/L</span>",
+          ifelse(patient$c3 < 0.9 | patient$c3 > 1.8, "red", "black"),
+          patient$c3
+        )
+      ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='Normal range 0.1-0.4 g/L'>C4: <span style='color: %s'>%s</span> g/L</span>",
+          ifelse(patient$c4 < 0.1 | patient$c4 > 0.4, "red", "black"),
+          patient$c4
+        )
+      ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='Normal range Negative'>ANCA: <span style='color: %s'>%s</span></span>",
+          ifelse(patient$anca != "Negative", "red", "black"),
+          patient$anca
+        )
+      ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='Normal range Negative'>ANA: <span style='color: %s'>%s</span></span>",
+          ifelse(patient$ana != "Negative", "red", "black"),
+          patient$ana
+        )
+      ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='Normal range Negative'>Quantiferon: <span style='color: %s'>%s</span></span>",
+          ifelse(patient$quantiferon != "Negative", "red", "black"),
+          patient$quantiferon
+        )
+      ))),
+      tags$p(HTML(paste(
+        sprintf(
+          "<span title='ACT Score: 5-15 (Poor), 16-19 (Not well), 20-25 (Well controlled)'>ACT Score: <span style='color: %s; font-weight: bold'>%s</span>/25</span>",
+          ifelse(patient$act_score >= 20, "green",
+            ifelse(patient$act_score >= 16, "orange", "red")
+          ),
+          patient$act_score
+        )
+      ))),
       tags$p(paste("Treatment:", patient$treatment))
     )
   })
@@ -434,67 +495,72 @@ server <- function(input, output, session) {
   })
 
   output$act_plot <- renderPlotly({
-  patient <- selected_patient()
-  
-  # Define control zones for visualization
-  poor_control <- data.frame(x = c(min(patient$Age), max(patient$Age)), y = c(15, 15))
-  not_well_controlled <- data.frame(x = c(min(patient$Age), max(patient$Age)), y = c(19, 19))
-  
-  p <- ggplot(patient, aes(x = Age)) +
-    # Add colored background zones
-    geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 5, ymax = 15),
-              fill = "#ffcccb", alpha = 0.3) +
-    geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 16, ymax = 19),
-              fill = "#ffffcc", alpha = 0.3) +
-    geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 20, ymax = 25),
-              fill = "#ccffcc", alpha = 0.3) +
-    # Add zone separator lines
-    geom_line(data = poor_control, aes(x = x, y = y), linetype = "dashed", color = "red") +
-    geom_line(data = not_well_controlled, aes(x = x, y = y), linetype = "dashed", color = "orange") +
-    # Add ACT scores line and points
-    geom_line(aes(y = act_score, color = "ACT Score")) +
-    geom_point(aes(y = act_score), size = 3) +
-    # Add text annotations for latest value
-    geom_text(data = tail(patient, 1), 
-              aes(y = act_score + 1, label = sprintf("%d", act_score)),
-              size = 3.5) +
-    # Formatting
-    scale_y_continuous(limits = c(5, 25), breaks = seq(5, 25, 5)) +
-    scale_color_manual(values = c("ACT Score" = "#9467bd")) +
-    labs(y = "ACT Score (5-25)", color = "") +
-    theme_minimal() +
-    theme(
-      panel.grid.minor = element_blank(),
-      legend.position = "top"
-    )
-  
-  ggplotly(p) %>%
-    layout(
-      annotations = list(
-        list(
-          x = min(patient$Age),
-          y = 10,
-          text = "Poor Control",
-          showarrow = FALSE,
-          font = list(color = "red")
-        ),
-        list(
-          x = min(patient$Age),
-          y = 17.5,
-          text = "Not Well Controlled",
-          showarrow = FALSE,
-          font = list(color = "orange")
-        ),
-        list(
-          x = min(patient$Age),
-          y = 22.5,
-          text = "Well Controlled",
-          showarrow = FALSE,
-          font = list(color = "green")
+    patient <- selected_patient()
+
+    # Define control zones for visualization
+    poor_control <- data.frame(x = c(min(patient$Age), max(patient$Age)), y = c(15, 15))
+    not_well_controlled <- data.frame(x = c(min(patient$Age), max(patient$Age)), y = c(19, 19))
+
+    p <- ggplot(patient, aes(x = Age)) +
+      # Add colored background zones
+      geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 5, ymax = 15),
+        fill = "#ffcccb", alpha = 0.3
+      ) +
+      geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 16, ymax = 19),
+        fill = "#ffffcc", alpha = 0.3
+      ) +
+      geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 20, ymax = 25),
+        fill = "#ccffcc", alpha = 0.3
+      ) +
+      # Add zone separator lines
+      geom_line(data = poor_control, aes(x = x, y = y), linetype = "dashed", color = "red") +
+      geom_line(data = not_well_controlled, aes(x = x, y = y), linetype = "dashed", color = "orange") +
+      # Add ACT scores line and points
+      geom_line(aes(y = act_score, color = "ACT Score")) +
+      geom_point(aes(y = act_score), size = 3) +
+      # Add text annotations for latest value
+      geom_text(
+        data = tail(patient, 1),
+        aes(y = act_score + 1, label = sprintf("%d", act_score)),
+        size = 3.5
+      ) +
+      # Formatting
+      scale_y_continuous(limits = c(5, 25), breaks = seq(5, 25, 5)) +
+      scale_color_manual(values = c("ACT Score" = "#9467bd")) +
+      labs(y = "ACT Score (5-25)", color = "") +
+      theme_minimal() +
+      theme(
+        panel.grid.minor = element_blank(),
+        legend.position = "top"
+      )
+
+    ggplotly(p) %>%
+      layout(
+        annotations = list(
+          list(
+            x = min(patient$Age),
+            y = 10,
+            text = "Poor Control",
+            showarrow = FALSE,
+            font = list(color = "red")
+          ),
+          list(
+            x = min(patient$Age),
+            y = 17.5,
+            text = "Not Well Controlled",
+            showarrow = FALSE,
+            font = list(color = "orange")
+          ),
+          list(
+            x = min(patient$Age),
+            y = 22.5,
+            text = "Well Controlled",
+            showarrow = FALSE,
+            font = list(color = "green")
+          )
         )
       )
-    )
-})
+  })
 
 
   observeEvent(input$edit_options, {
@@ -516,26 +582,27 @@ server <- function(input, output, session) {
     ))
   })
 
-observeEvent(input$edit_smoking, {
-  removeModal()
-  patient <- selected_patient() %>% tail(1)
-  showModal(modalDialog(
-    title = "Edit Smoking Status",
-    selectInput("new_smoking_status", "Smoking Status:",
-               choices = c("Never Smoked", "Former Smoker", "Current Smoker"),
-               selected = patient$`Smoking Status`),
-    footer = tagList(
-      modalButton("Cancel"),
-      actionButton("save_smoking", "Save")
-    )
-  ))
-})
+  observeEvent(input$edit_smoking, {
+    removeModal()
+    patient <- selected_patient() %>% tail(1)
+    showModal(modalDialog(
+      title = "Edit Smoking Status",
+      selectInput("new_smoking_status", "Smoking Status:",
+        choices = c("Never Smoked", "Former Smoker", "Current Smoker"),
+        selected = patient$`Smoking Status`
+      ),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("save_smoking", "Save")
+      )
+    ))
+  })
 
-observeEvent(input$save_smoking, {
-  last_row <- which(rv$patient_data$ID == input$patient_id)[length(which(rv$patient_data$ID == input$patient_id))]
-  rv$patient_data$`Smoking Status`[last_row] <- input$new_smoking_status
-  removeModal()
-})
+  observeEvent(input$save_smoking, {
+    last_row <- which(rv$patient_data$ID == input$patient_id)[length(which(rv$patient_data$ID == input$patient_id))]
+    rv$patient_data$`Smoking Status`[last_row] <- input$new_smoking_status
+    removeModal()
+  })
 
   observeEvent(input$perfect_adherence, {
     removeModal()
@@ -567,194 +634,213 @@ observeEvent(input$save_smoking, {
   })
 
   # 4. Add a button to update ACT score in your Edit Patient modal
-# Modify your observeEvent(input$edit_options, {...}) function
+  # Modify your observeEvent(input$edit_options, {...}) function
 
-observeEvent(input$edit_options, {
-  showModal(modalDialog(
-    title = "Edit Patient Options",
-    div(
-      style = "text-align: center;",
-      actionButton("edit_smoking", "Edit Smoking Status",
-        style = "margin: 5px;"
-      ),
-      actionButton("perfect_adherence", "Set Perfect Adherence",
-        style = "margin: 5px;"
-      ),
-      actionButton("avoid_allergens", "Avoid Allergens",
-        style = "margin: 5px;"
-      ),
-      # Add this new button
-      actionButton("update_act", "Update ACT Score",
-        style = "margin: 5px;"
-      )
-    ),
-    footer = modalButton("Close")
-  ))
-})
-
-# 5. Add the event handler for the ACT update button
-
-observeEvent(input$update_act, {
-  removeModal()
-  patient <- selected_patient() %>% tail(1)
-  showModal(modalDialog(
-    title = "Update ACT Score",
-    
-    # Create a small form for the 5 ACT questions
-    div(
-      h4("In the past 4 weeks:"),
-      
-      # Question 1
-      div(style = "margin-bottom: 15px;",
-          p("1. How much of the time did your asthma keep you from getting as much done at work, school or at home?"),
-          radioButtons("act_q1", "", 
-                       choices = c("All of the time" = 1, 
-                                  "Most of the time" = 2,
-                                  "Some of the time" = 3,
-                                  "A little of the time" = 4,
-                                  "None of the time" = 5),
-                       selected = character(0), 
-                       inline = FALSE)
-      ),
-      
-      # Question 2
-      div(style = "margin-bottom: 15px;",
-          p("2. How often have you had shortness of breath?"),
-          radioButtons("act_q2", "", 
-                       choices = c("More than once a day" = 1, 
-                                  "Once a day" = 2,
-                                  "3 to 6 times a week" = 3,
-                                  "Once or twice a week" = 4,
-                                  "Not at all" = 5),
-                       selected = character(0), 
-                       inline = FALSE)
-      ),
-      
-      # Question 3
-      div(style = "margin-bottom: 15px;",
-          p("3. How often did your asthma symptoms wake you up at night or earlier than usual?"),
-          radioButtons("act_q3", "", 
-                       choices = c("4 or more nights a week" = 1, 
-                                  "2-3 nights a week" = 2,
-                                  "Once a week" = 3,
-                                  "Once or twice" = 4,
-                                  "Not at all" = 5),
-                       selected = character(0), 
-                       inline = FALSE)
-      ),
-      
-      # Question 4
-      div(style = "margin-bottom: 15px;",
-          p("4. How often have you used your rescue inhaler or nebulizer medication?"),
-          radioButtons("act_q4", "", 
-                       choices = c("3 or more times per day" = 1, 
-                                  "1-2 times per day" = 2,
-                                  "2-3 times per week" = 3,
-                                  "Once a week or less" = 4,
-                                  "Not at all" = 5),
-                       selected = character(0), 
-                       inline = FALSE)
-      ),
-      
-      # Question 5
-      div(style = "margin-bottom: 15px;",
-          p("5. How would you rate your asthma control?"),
-          radioButtons("act_q5", "", 
-                       choices = c("Not controlled at all" = 1, 
-                                  "Poorly controlled" = 2,
-                                  "Somewhat controlled" = 3,
-                                  "Well controlled" = 4,
-                                  "Completely controlled" = 5),
-                       selected = character(0), 
-                       inline = FALSE)
-      )
-    ),
-    
-    # Add calculation summary that updates when options are selected
-    uiOutput("act_calculation"),
-    
-    footer = tagList(
-      modalButton("Cancel"),
-      actionButton("save_act", "Save ACT Score")
-    )
-  ))
-})
-
-# 6. Add reactive calculation of ACT score
-output$act_calculation <- renderUI({
-  # Calculate total from all questions
-  q1 <- as.numeric(input$act_q1)
-  q2 <- as.numeric(input$act_q2)
-  q3 <- as.numeric(input$act_q3)
-  q4 <- as.numeric(input$act_q4)
-  q5 <- as.numeric(input$act_q5)
-  
-  # Handle NAs
-  q1 <- if(is.na(q1)) 0 else q1
-  q2 <- if(is.na(q2)) 0 else q2
-  q3 <- if(is.na(q3)) 0 else q3
-  q4 <- if(is.na(q4)) 0 else q4
-  q5 <- if(is.na(q5)) 0 else q5
-  
-  total <- q1 + q2 + q3 + q4 + q5
-  
-  if(total == 0) {
-    status <- "Please answer all questions"
-    color <- "black"
-  } else if(total < 16) {
-    status <- "Poorly controlled asthma"
-    color <- "red"
-  } else if(total < 20) {
-    status <- "Not well controlled asthma"
-    color <- "orange"
-  } else {
-    status <- "Well controlled asthma"
-    color <- "green"
-  }
-  
-  tags$div(
-    style = "text-align: center; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;",
-    h4("ACT Score Calculation"),
-    tags$p(sprintf("Current total: %d/25", total)),
-    tags$p(style = sprintf("font-weight: bold; color: %s;", color), status)
-  )
-})
-
-# 7. Add event handler to save the ACT score
-observeEvent(input$save_act, {
-  # Calculate total from all questions
-  q1 <- as.numeric(input$act_q1)
-  q2 <- as.numeric(input$act_q2)
-  q3 <- as.numeric(input$act_q3)
-  q4 <- as.numeric(input$act_q4)
-  q5 <- as.numeric(input$act_q5)
-  
-  # Check if all questions are answered
-  if(any(is.na(c(q1, q2, q3, q4, q5)))) {
+  observeEvent(input$edit_options, {
     showModal(modalDialog(
-      title = "Error",
-      "Please answer all questions to calculate ACT score",
-      footer = modalButton("OK")
+      title = "Edit Patient Options",
+      div(
+        style = "text-align: center;",
+        actionButton("edit_smoking", "Edit Smoking Status",
+          style = "margin: 5px;"
+        ),
+        actionButton("perfect_adherence", "Set Perfect Adherence",
+          style = "margin: 5px;"
+        ),
+        actionButton("avoid_allergens", "Avoid Allergens",
+          style = "margin: 5px;"
+        ),
+        # Add this new button
+        actionButton("update_act", "Update ACT Score",
+          style = "margin: 5px;"
+        )
+      ),
+      footer = modalButton("Close")
     ))
-    return()
-  }
-  
-  total <- q1 + q2 + q3 + q4 + q5
-  
-  # Update the ACT score in the dataset
-  last_row <- which(rv$patient_data$ID == input$patient_id)
-  last_row <- last_row[length(last_row)]
-  rv$patient_data$act_score[last_row] <- total
-  
-  removeModal()
-  
-  # Show confirmation
-  showModal(modalDialog(
-    title = "Success",
-    sprintf("ACT Score updated to %d/25", total),
-    footer = modalButton("Close")
-  ))
-})
+  })
+
+  # 5. Add the event handler for the ACT update button
+
+  observeEvent(input$update_act, {
+    removeModal()
+    patient <- selected_patient() %>% tail(1)
+    showModal(modalDialog(
+      title = "Update ACT Score",
+
+      # Create a small form for the 5 ACT questions
+      div(
+        h4("In the past 4 weeks:"),
+
+        # Question 1
+        div(
+          style = "margin-bottom: 15px;",
+          p("1. How much of the time did your asthma keep you from getting as much done at work, school or at home?"),
+          radioButtons("act_q1", "",
+            choices = c(
+              "All of the time" = 1,
+              "Most of the time" = 2,
+              "Some of the time" = 3,
+              "A little of the time" = 4,
+              "None of the time" = 5
+            ),
+            selected = character(0),
+            inline = FALSE
+          )
+        ),
+
+        # Question 2
+        div(
+          style = "margin-bottom: 15px;",
+          p("2. How often have you had shortness of breath?"),
+          radioButtons("act_q2", "",
+            choices = c(
+              "More than once a day" = 1,
+              "Once a day" = 2,
+              "3 to 6 times a week" = 3,
+              "Once or twice a week" = 4,
+              "Not at all" = 5
+            ),
+            selected = character(0),
+            inline = FALSE
+          )
+        ),
+
+        # Question 3
+        div(
+          style = "margin-bottom: 15px;",
+          p("3. How often did your asthma symptoms wake you up at night or earlier than usual?"),
+          radioButtons("act_q3", "",
+            choices = c(
+              "4 or more nights a week" = 1,
+              "2-3 nights a week" = 2,
+              "Once a week" = 3,
+              "Once or twice" = 4,
+              "Not at all" = 5
+            ),
+            selected = character(0),
+            inline = FALSE
+          )
+        ),
+
+        # Question 4
+        div(
+          style = "margin-bottom: 15px;",
+          p("4. How often have you used your rescue inhaler or nebulizer medication?"),
+          radioButtons("act_q4", "",
+            choices = c(
+              "3 or more times per day" = 1,
+              "1-2 times per day" = 2,
+              "2-3 times per week" = 3,
+              "Once a week or less" = 4,
+              "Not at all" = 5
+            ),
+            selected = character(0),
+            inline = FALSE
+          )
+        ),
+
+        # Question 5
+        div(
+          style = "margin-bottom: 15px;",
+          p("5. How would you rate your asthma control?"),
+          radioButtons("act_q5", "",
+            choices = c(
+              "Not controlled at all" = 1,
+              "Poorly controlled" = 2,
+              "Somewhat controlled" = 3,
+              "Well controlled" = 4,
+              "Completely controlled" = 5
+            ),
+            selected = character(0),
+            inline = FALSE
+          )
+        )
+      ),
+
+      # Add calculation summary that updates when options are selected
+      uiOutput("act_calculation"),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("save_act", "Save ACT Score")
+      )
+    ))
+  })
+
+  # 6. Add reactive calculation of ACT score
+  output$act_calculation <- renderUI({
+    # Calculate total from all questions
+    q1 <- as.numeric(input$act_q1)
+    q2 <- as.numeric(input$act_q2)
+    q3 <- as.numeric(input$act_q3)
+    q4 <- as.numeric(input$act_q4)
+    q5 <- as.numeric(input$act_q5)
+
+    # Handle NAs
+    q1 <- if (is.na(q1)) 0 else q1
+    q2 <- if (is.na(q2)) 0 else q2
+    q3 <- if (is.na(q3)) 0 else q3
+    q4 <- if (is.na(q4)) 0 else q4
+    q5 <- if (is.na(q5)) 0 else q5
+
+    total <- q1 + q2 + q3 + q4 + q5
+
+    if (total == 0) {
+      status <- "Please answer all questions"
+      color <- "black"
+    } else if (total < 16) {
+      status <- "Poorly controlled asthma"
+      color <- "red"
+    } else if (total < 20) {
+      status <- "Not well controlled asthma"
+      color <- "orange"
+    } else {
+      status <- "Well controlled asthma"
+      color <- "green"
+    }
+
+    tags$div(
+      style = "text-align: center; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;",
+      h4("ACT Score Calculation"),
+      tags$p(sprintf("Current total: %d/25", total)),
+      tags$p(style = sprintf("font-weight: bold; color: %s;", color), status)
+    )
+  })
+
+  # 7. Add event handler to save the ACT score
+  observeEvent(input$save_act, {
+    # Calculate total from all questions
+    q1 <- as.numeric(input$act_q1)
+    q2 <- as.numeric(input$act_q2)
+    q3 <- as.numeric(input$act_q3)
+    q4 <- as.numeric(input$act_q4)
+    q5 <- as.numeric(input$act_q5)
+
+    # Check if all questions are answered
+    if (any(is.na(c(q1, q2, q3, q4, q5)))) {
+      showModal(modalDialog(
+        title = "Error",
+        "Please answer all questions to calculate ACT score",
+        footer = modalButton("OK")
+      ))
+      return()
+    }
+
+    total <- q1 + q2 + q3 + q4 + q5
+
+    # Update the ACT score in the dataset
+    last_row <- which(rv$patient_data$ID == input$patient_id)
+    last_row <- last_row[length(last_row)]
+    rv$patient_data$act_score[last_row] <- total
+
+    removeModal()
+
+    # Show confirmation
+    showModal(modalDialog(
+      title = "Success",
+      sprintf("ACT Score updated to %d/25", total),
+      footer = modalButton("Close")
+    ))
+  })
 }
 
 # Run the application

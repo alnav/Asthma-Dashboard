@@ -1,4 +1,5 @@
 import numpy as np
+from datetime import datetime, timedelta
 
 def progress_patient(patient):
     def change_by_10_percent(value):
@@ -48,4 +49,25 @@ def progress_patient(patient):
     for key in keys_to_modify:
         new_patient[key] = change_by_10_percent(patient[key])
     
+    # Add review date, within 1 month of previous date, same year
+    previous_review_date = datetime.strptime(
+        patient.get("Review Date", datetime.now().strftime("%Y-%m-%d")), 
+        "%Y-%m-%d"
+    )
+    
+    # Add one year
+    new_review_date = previous_review_date + timedelta(days=365)
+    
+    # Add random variation of ±1 month (30 days)
+    month_variation = np.random.randint(-30, 31)
+    new_review_date = new_review_date + timedelta(days=month_variation)
+    
+    # Ensure date stays in same year
+    if new_review_date.year > previous_review_date.year + 1:
+        new_review_date = datetime(new_review_date.year - 1, 12, 31)
+    elif new_review_date.year < previous_review_date.year + 1:
+        new_review_date = datetime(new_review_date.year + 1, 1, 1)
+    
+    new_patient["Review Date"] = new_review_date.strftime("%Y-%m-%d")
+
     return new_patient
