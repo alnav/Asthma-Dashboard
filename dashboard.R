@@ -61,7 +61,13 @@ ui <- fluidPage(
     mainPanel(
       width = 9,
       fluidRow(
-        column(12,
+        column(
+          8, # Increase the width of the ACT chart
+          h3("Asthma Control Test (ACT) Score"),
+          plotlyOutput("act_plot")
+        ),
+        column(
+          4, # Gauge column
           align = "center",
           h3("Risk of exacerbation in the next month"),
           div(
@@ -69,9 +75,10 @@ ui <- fluidPage(
             height: 200px;
             display: flex;
             justify-content: center;
-            align-items: center;",
+            align-items: center; padding-left: 0;",
             gaugeOutput("risk_gauge")
-          )
+          ),
+          uiOutput("risk_factors") # Add the dynamic risk factors box
         )
       ),
       fluidRow(
@@ -99,18 +106,12 @@ ui <- fluidPage(
         )
       ),
       fluidRow(
-        column(
-          12,
-          h3("Asthma Control Test (ACT) Score"),
-          plotlyOutput("act_plot"),
-          div(
-            style = "margin-top: 10px; font-size: 12px; color: #666;",
-            "ACT Score: 5-25 (>19 indicates well-controlled asthma)",
-            br(),
-            "Score categories: 5-15 (Poor control), 16-19 (Not well controlled), 20-25 (Well controlled)"
-          )
-        )
-      ),
+  column(
+    12,
+    h3("Exacerbation Timeline"),
+    plotlyOutput("exacerbation_timeline")
+  )
+)
     )
   )
 )
@@ -219,6 +220,42 @@ server <- function(input, output, session) {
         warning = c(30, 70),
         danger = c(70, 100)
       )
+    )
+  })
+
+  output$risk_factors <- renderUI({
+    patient <- selected_patient() %>% tail(1)
+    factors <- c()
+    
+    if (!is.na(patient$eosinophil_level) && patient$eosinophil_level > 0.45) {
+      factors <- c(factors, "High eosinophil levels")
+    }
+    if (!is.na(patient$FeNO_ppb) && patient$FeNO_ppb > 25) {
+      factors <- c(factors, "Elevated FeNO")
+    }
+    if (!is.na(patient$Adherence) && patient$Adherence < 80) {
+      factors <- c(factors, "Poor adherence")
+    }
+    if (!is.na(patient$`Smoking Status`) && patient$`Smoking Status` == "Current Smoker") {
+      factors <- c(factors, "Smoking status")
+    }
+    if (!is.na(patient$`Asthma Severity`) && patient$`Asthma Severity` == "Severe") {
+      factors <- c(factors, "Asthma severity")
+    }
+    if (!is.na(patient$BMI) && patient$BMI > 24) {
+      factors <- c(factors, "High BMI")
+    }
+    
+    if (length(factors) == 0) {
+      factors_text <- "No significant risk factors identified."
+    } else {
+      factors_text <- paste(factors, collapse = ", ")
+    }
+    
+    div(
+      style = "margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; font-size: 12px; color: #666;",
+      h5("Risk Factors:", style = "font-weight: bold; color: red;"),
+      p(factors_text)
     )
   })
 
@@ -527,32 +564,32 @@ server <- function(input, output, session) {
       # Formatting
       scale_y_continuous(limits = c(5, 25), breaks = seq(5, 25, 5)) +
       scale_color_manual(values = c("ACT Score" = "#9467bd")) +
-      labs(y = "ACT Score (5-25)", color = "") +
+      labs(y = "ACT Score", color = "") +
       theme_minimal() +
       theme(
         panel.grid.minor = element_blank(),
-        legend.position = "top"
+        legend.position = "none" 
       )
 
     ggplotly(p) %>%
       layout(
         annotations = list(
           list(
-            x = min(patient$Age),
+            x = min(patient$Age)+0.4,
             y = 10,
             text = "Poor Control",
             showarrow = FALSE,
             font = list(color = "red")
           ),
           list(
-            x = min(patient$Age),
+            x = min(patient$Age)+0.4,
             y = 17.5,
             text = "Not Well Controlled",
             showarrow = FALSE,
             font = list(color = "orange")
           ),
           list(
-            x = min(patient$Age),
+            x = min(patient$Age)+0.4,
             y = 22.5,
             text = "Well Controlled",
             showarrow = FALSE,
@@ -765,6 +802,57 @@ server <- function(input, output, session) {
       )
     ))
   })
+output$exacerbation_timeline <- renderPlotly({
+  patient <- selected_patient()
+  
+  # Convert comma-separated dates to vector safely
+  exacerbation_dates <- NULL
+  if (!is.null(patient$exacerbation_dates)) {
+    dates_str <- patient$exacerbation_dates[patient$exacerbation_dates != "None"]
+    if (length(dates_str) > 0) {
+      date_vector <- unlist(strsplit(dates_str, ","))
+      exacerbation_dates <- as.Date(trimws(date_vector), format = "%Y-%m-%d")
+    }
+  }
+  
+  # Create base plot with date range
+  p <- plot_ly() %>%
+    layout(
+      yaxis = list(
+        showticklabels = FALSE,
+        showgrid = FALSE,
+        zeroline = FALSE,
+        range = c(0.5, 1.5)  # Adjust y-axis range for label space
+      ),
+      xaxis = list(
+        title = "Date",
+        showgrid = TRUE
+      ),
+      showlegend = FALSE
+    )
+  
+  # Add markers and text labels if there are exacerbation dates
+  if (!is.null(exacerbation_dates) && length(exacerbation_dates) > 0) {
+    p <- p %>% add_trace(
+      type = "scatter",
+      mode = "markers+text",  # Add text mode
+      x = exacerbation_dates,
+      y = rep(1, length(exacerbation_dates)),
+      text = format(exacerbation_dates, "%Y-%m-%d"),  # Add date labels
+      textposition = "top center",  # Position above points
+      marker = list(
+        color = "red",
+        size = 10,
+        symbol = "diamond"
+      ),
+      hovertemplate = "Exacerbation: %{x}<extra></extra>"
+    )
+  }
+  
+  p
+})
+  
+  
 
   # 6. Add reactive calculation of ACT score
   output$act_calculation <- renderUI({

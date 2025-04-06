@@ -70,4 +70,45 @@ def progress_patient(patient):
     
     new_patient["Review Date"] = new_review_date.strftime("%Y-%m-%d")
 
+    # Generate potential exacerbation dates
+    exacerbation_dates = []
+    
+    # Base probability based on asthma severity
+    severity_probabilities = {
+        "Mild": 0.1,
+        "Moderate": 0.2,
+        "Severe": 0.4
+    }
+    base_probability = severity_probabilities.get(patient["Asthma Severity"], 0.2)
+    
+    # Increase probability based on risk factors
+    if adherence < 50:
+        base_probability += 0.2
+    if current_act < 15:
+        base_probability += 0.2
+    if patient["eosinophil_level"] > 0.45:
+        base_probability += 0.1
+    if patient["Smoking Status"] == "Current Smoker":
+        base_probability += 0.15
+        
+    # Check for exacerbations (max 4 per year for severe asthma)
+    max_exacerbations = 4 if patient["Asthma Severity"] == "Severe" else 3
+    
+    while (np.random.random() < base_probability and 
+           len(exacerbation_dates) < max_exacerbations):
+        # Generate random date between previous and new review
+        days_between = (new_review_date - previous_review_date).days
+        random_days = np.random.randint(0, days_between)
+        exacerbation_date = previous_review_date + timedelta(days=random_days)
+        
+        # Ensure minimum 30 days between exacerbations
+        if not exacerbation_dates or min(
+            abs((datetime.strptime(existing_date, "%Y-%m-%d") - 
+                 exacerbation_date).days)
+            for existing_date in exacerbation_dates) >= 30:
+            exacerbation_dates.append(exacerbation_date.strftime("%Y-%m-%d"))
+            base_probability *= 0.6  # Reduce chance of additional exacerbations
+    
+    new_patient["exacerbation_dates"] = ",".join(sorted(exacerbation_dates)) if exacerbation_dates else "None"
+
     return new_patient

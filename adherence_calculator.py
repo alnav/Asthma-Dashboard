@@ -19,7 +19,7 @@ def assign_adherence(patient):
     # Assign adherence based on group
     if group < 0.2:  # 20% chance
         adherence = 100
-    elif group < 0.5:  # 30% chance (0.5 - 0.2 = 0.3)
+    elif group < 0.5:  # 30% chance
         adherence = random.uniform(50, 80)
     else:  # 50% chance
         adherence = random.uniform(0, 50)
