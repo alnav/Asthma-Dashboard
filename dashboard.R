@@ -31,8 +31,16 @@ ui <- fluidPage(
         h5("Name:", style = "font-weight: bold; margin-right: 5px;"),
         htmlOutput("patient_name")
       ),
-      h5("Date of Birth:", style = "font-weight: bold;"),
-      h5("NHS Number:", style = "font-weight: bold;"),
+      div(
+        style = "display: flex; align-items: center;",
+        h5("Date of Birth:", style = "font-weight: bold; margin-right: 5px;"),
+        htmlOutput("patient_dob")
+      ),
+      div(
+        style = "display: flex; align-items: center;",
+        h5("NHS Number:", style = "font-weight: bold; margin-right: 5px;"),
+        htmlOutput("patient_nhs")
+      ),
       tags$hr(style = "border-top: 1px solid #ddd; margin: 10px 0;"),
       htmlOutput("patient_info"),
       tags$hr(style = "border-top: 1px solid #ddd; margin: 10px 0;"),
@@ -131,6 +139,17 @@ server <- function(input, output, session) {
   output$patient_name <- renderUI({
     patient <- selected_patient() %>% tail(1)
     tags$span(patient$Name)
+  })
+
+  output$patient_dob <- renderUI({
+  patient <- selected_patient() %>% tail(1)
+  formatted_date <- format(as.Date(patient$birth_date), "%d/%m/%Y")
+  tags$span(formatted_date)
+  })
+
+  output$patient_nhs <- renderUI({
+    patient <- selected_patient() %>% tail(1)
+    tags$span(patient$nhs_number)
   })
 
   calculate_risk <- function(patient) {

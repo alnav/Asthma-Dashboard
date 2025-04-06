@@ -1,5 +1,30 @@
 import numpy as np
 from datetime import datetime, timedelta
+import random
+
+def generate_nhs_number():
+    """Generate a valid NHS number with check digit"""
+    while True:
+        # Generate the first 9 digits randomly
+        digits = [random.randint(0, 9) for _ in range(9)]
+        
+        # Apply weighting: multiply each digit by its weight (10 to 2)
+        total = sum(d * (10 - i) for i, d in enumerate(digits))
+        
+        # Calculate check digit
+        check_digit = 11 - (total % 11)
+        
+        # If check digit is 11, set to 0
+        # If check digit is 10, number is invalid - try again
+        if check_digit == 11:
+            check_digit = 0
+        elif check_digit == 10:
+            continue
+            
+        digits.append(check_digit)
+        nhs_number = ''.join(map(str, digits))
+        return f"{nhs_number[:3]} {nhs_number[3:6]} {nhs_number[6:]}"
+
 
 # Function to create a single patient
 def new_patient():
@@ -47,6 +72,27 @@ def new_patient():
     
     # Generate age (18-80 years)
     age = np.random.randint(18, 80)
+    
+    # Calculate birth date based on age (assuming today is August 1, 2025)
+    reference_date = datetime(2025, 8, 1)
+    birth_year = reference_date.year - age
+    birth_month = np.random.randint(1, 13)
+    
+    # Adjust birth year if birth month is after August
+    if birth_month > reference_date.month:
+        birth_year -= 1
+    
+    # Get max days for the chosen month
+    if birth_month in [4, 6, 9, 11]:
+        max_days = 30
+    elif birth_month == 2:
+        # Simple leap year calculation
+        max_days = 29 if birth_year % 4 == 0 and (birth_year % 100 != 0 or birth_year % 400 == 0) else 28
+    else:
+        max_days = 31
+        
+    birth_day = np.random.randint(1, max_days + 1)
+    birth_date = datetime(birth_year, birth_month, birth_day).strftime("%Y-%m-%d")
     
     # Generate height based on sex (in cm)
     height = np.round(
@@ -216,9 +262,14 @@ def new_patient():
     surname = np.random.choice(surnames_by_ethnicity[ethnicity])
     full_name = f"{first_name} {surname}"
 
+    # Generate NHS number
+    nhs_number = generate_nhs_number()
+
     # Return patient object as a dictionary
     return {
         "Name": full_name,
+        "nhs_number": nhs_number,
+        "birth_date": birth_date,
         "Sex": sex,
         "Age": age,
         "Job": job,
