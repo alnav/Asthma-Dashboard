@@ -289,6 +289,6 @@ def new_patient():
         "anca": anca,
         "ana": ana,
         "quantiferon": quantiferon,
-        "Review Date": review_date.strftime("%Y-%m-%d"),
+        "review_date": review_date.strftime("%Y-%m-%d"),
         "exacerbation_dates": []
     }

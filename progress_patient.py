@@ -51,7 +51,7 @@ def progress_patient(patient):
     
     # Add review date, within 1 month of previous date, same year
     previous_review_date = datetime.strptime(
-        patient.get("Review Date", datetime.now().strftime("%Y-%m-%d")), 
+        patient.get("review_date", datetime.now().strftime("%Y-%m-%d")), 
         "%Y-%m-%d"
     )
     
@@ -68,7 +68,7 @@ def progress_patient(patient):
     elif new_review_date.year < previous_review_date.year + 1:
         new_review_date = datetime(new_review_date.year + 1, 1, 1)
     
-    new_patient["Review Date"] = new_review_date.strftime("%Y-%m-%d")
+    new_patient["review_date"] = new_review_date.strftime("%Y-%m-%d")
 
     # Generate potential exacerbation dates
     exacerbation_dates = []
