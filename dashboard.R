@@ -161,7 +161,9 @@ server <- function(input, output, session) {
     print(sprintf("FeNO: %f", patient$FeNO_ppb))
     print(sprintf("Adherence: %f", patient$Adherence))
     print(sprintf("Smoking: %s", patient$`Smoking Status`))
+        print(sprintf("BMI: %s", patient$BMI))
     print(sprintf("Severity: %s", patient$`Asthma Severity`))
+
 
     # Coefficients
     beta_0 <- -0 # Baseline risk
@@ -172,6 +174,7 @@ server <- function(input, output, session) {
     beta_smoking <- c(0.0, 0.5, 1.0) # Coefficients for smoking status
     beta_feno <- 0.01 # FeNO contribution to risk
     beta_adherence <- -0.02 # Better adherence reduces risk
+    beta_bmi <- 0.01 # BMI contribution to risk
 
     # Input validation with defaults
     fev1 <- ifelse(is.na(patient$fev1_percent_predicted),
@@ -206,7 +209,8 @@ server <- function(input, output, session) {
       beta_severity * severity_numeric +
       beta_smoking[smoking_numeric + 1] +
       beta_feno * patient$FeNO_ppb +
-      beta_adherence * patient$Adherence
+      beta_adherence * patient$Adherence +
+      beta_bmi * patient$BMI
 
     # Print debug info
     print(sprintf("Log odds: %f", log_odds))
