@@ -15,16 +15,16 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 3,
-      selectInput("patient_id",
-        "Select Patient ID:",
-        choices = unique(patient_data$ID)
+      selectizeInput("patient_id", "Select Patient ID:", 
+               choices = unique(patient_data$ID),
+               selected = unique(patient_data$ID)[1], # Select the first patient by default
       ),
       dateRangeInput("date_range",
         "Select Date Range:",
-        start = min(patient_data$Date),
-        end = max(patient_data$Date),
-        min = min(patient_data$Date),
-        max = max(patient_data$Date)
+        start = min(as.Date(patient_data$review_date)),
+        end = max(as.Date(patient_data$review_date)),
+        min = min(as.Date(patient_data$review_date)),
+        max = max(as.Date(patient_data$review_date))
       ),
       h3("Patient", style = "font-weight: bold;"),
       div(
@@ -51,21 +51,6 @@ ui <- fluidPage(
       h3("Other Information", style = "font-weight: bold;"),
       h5("Hover for normal ranges", style = "font-style: italic;"),
       htmlOutput("latest_other_info"),
-      div(
-        style = "position: absolute; bottom:0px; width: 50%;",
-        actionButton("edit_options", "Edit Patient",
-          style = "
-        background-color: #880808;
-        color: white;
-        font-weight: bold;
-        padding: 10px 15px;
-        width: 100%;
-        border-radius: 5px;
-        border: none;
-        transition: background-color 0.3s;
-      "
-        )
-      ),
       div(
         style = "position: absolute; bottom:-50px; width: 50%;",
         actionButton("generate_report", "Generate Report",
@@ -130,12 +115,12 @@ ui <- fluidPage(
         )
       ),
       fluidRow(
-  column(
-    12,
-    h3("Exacerbation Timeline"),
-    plotlyOutput("exacerbation_timeline")
-  )
-)
+        column(
+          12,
+          h3("Exacerbation Timeline"),
+          plotlyOutput("exacerbation_timeline")
+        )
+      )
     )
   )
 )
@@ -158,9 +143,9 @@ server <- function(input, output, session) {
   })
 
   output$patient_dob <- renderUI({
-  patient <- selected_patient() %>% tail(1)
-  formatted_date <- format(as.Date(patient$birth_date), "%d/%m/%Y")
-  tags$span(formatted_date)
+    patient <- selected_patient() %>% tail(1)
+    formatted_date <- format(as.Date(patient$birth_date), "%d/%m/%Y")
+    tags$span(formatted_date)
   })
 
   output$patient_nhs <- renderUI({
@@ -288,9 +273,23 @@ server <- function(input, output, session) {
     }
     
     div(
-      style = "margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; font-size: 12px; color: #666;",
+      style = "margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;",
       h5("Risk Factors:", style = "font-weight: bold; color: red;"),
-      p(factors_text)
+      p(factors_text, style = "font-size: 12px; color: #666; margin-bottom: 15px;"),
+      # Add Edit Patient button here
+      actionButton("edit_options", "Modify Risk Factors",
+        style = "
+          background-color: #880808;
+          color: white;
+          font-weight: bold;
+          padding: 10px 15px;
+          width: 100%;
+          border-radius: 5px;
+          border: none;
+          transition: background-color 0.3s;
+          margin-top: 10px;
+        "
+      )
     )
   })
 
@@ -496,6 +495,8 @@ server <- function(input, output, session) {
     )
   })
 
+  # Deprecated FEV1 plot
+'
   output$lung_function_plot <- renderPlotly({
     patient <- selected_patient()
     
@@ -521,7 +522,7 @@ p <- ggplot(patient, aes(x = review_date)) +
     ),
     size = 3.5
   ) +
-  labs(y = "FEV1", color = "") +
+  labs(y = "FEV1 (L)", color = "") +
   theme_minimal()
 
 ggplotly(p, tooltip = "text") %>%
@@ -530,52 +531,150 @@ ggplotly(p, tooltip = "text") %>%
     xaxis = list(title = "")
   )
 
-  })
+  })'
 
-  output$adherence_plot <- renderPlotly({
+output$lung_function_plot <- renderPlotly({
     patient <- selected_patient()
+    
+    # Ensure dates are properly formatted
+    patient$review_date <- as.Date(patient$review_date)
+
+    plot_ly(data = patient) %>%
+      add_trace(
+        x = ~review_date,
+        y = ~fev1_actual,
+        name = "FEV1",
+        type = "scatter",
+        mode = "lines+markers+text",
+        line = list(color = "red"),
+        text = ~sprintf("%.2f (%.0f%%)", fev1_actual, as.numeric(fev1_percent_predicted)),
+        textposition = "top center",
+        hovertemplate = paste0(
+          "FEV1: %{y:.2f} L (%{text})",
+          "<extra></extra>"
+        ),
+        textfont = list(size = 10)
+      ) %>%
+      add_trace(
+        x = ~review_date,
+        y = ~fvc_actual,
+        name = "FVC",
+        yaxis = "y2",
+        type = "scatter",
+        mode = "lines+markers+text",
+        line = list(color = "blue"),
+        text = ~sprintf("%.2f (%.0f%%)", fvc_actual, as.numeric(fvc_percent_predicted)),
+        textposition = "top center",
+        hovertemplate = paste0(
+          "FVC: %{y:.2f} L (%{text})",
+          "<extra></extra>"
+        ),
+        textfont = list(size = 10)
+      ) %>%
+      layout(
+        yaxis = list(
+          title = "FEV1 (L)",
+          side = "left"
+        ),
+        yaxis2 = list(
+          title = "FVC (L)",
+          overlaying = "y",
+          side = "right"
+        ),
+        xaxis = list(
+          title = "",
+          type = "date",
+          tickformat = "%d/%m/%Y",
+          showgrid = TRUE
+        ),
+        showlegend = TRUE,
+        hovermode = "x unified"
+      )
+})
+
+output$adherence_plot <- renderPlotly({
+    patient <- selected_patient()
+    
+    # Ensure dates are properly formatted
+    patient$review_date <- as.Date(patient$review_date)
+    
     p <- ggplot(patient, aes(x = review_date)) +
       geom_hline(yintercept = 80, color = "red", linetype = "dashed") +
       geom_line(aes(y = Adherence, color = "Adherence (%)")) +
-      geom_point(aes(y = Adherence), color = "#0000FF") +
-      geom_text(aes(y = Adherence + 10, label = sprintf("%.0f%%", Adherence)),
+      geom_point(
+        aes(
+          y = Adherence,
+          text = paste0(
+            "Date: ", format(review_date, "%d/%m/%Y"), "<br>",
+            "Adherence: ", sprintf("%.0f%%", Adherence)
+          )
+        ),
+        color = "#0000FF"
+      ) +
+      geom_text(
+        aes(y = Adherence + 5, label = sprintf("%.0f%%", Adherence)),
         size = 3.5
       ) +
       labs(y = "Adherence (%)", color = "") +
       scale_color_manual(values = c("Adherence (%)" = "#0000FF")) +
       scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
       theme_minimal()
-    ggplotly(p)%>%
-    layout(
-      showlegend = FALSE,
-      xaxis = list(
-        title = ""
+    
+    ggplotly(p, tooltip = "text") %>%
+      layout(
+        showlegend = FALSE,
+        xaxis = list(
+          title = "",
+          type = "date",
+          tickformat = "%d/%m/%Y"
+        )
       )
-    )
 })
 
   output$pef_plot <- renderPlotly({
     patient <- selected_patient()
+    
+    # Ensure dates are properly formatted
+    patient$review_date <- as.Date(patient$review_date)
+    
     p <- ggplot(patient, aes(x = review_date)) +
       geom_line(aes(y = pef, color = "PEF (L/s)")) +
-      geom_point(aes(y = pef), color = "red") +
+      geom_point(
+        aes(
+          y = pef,
+          text = paste0(
+            "Date: ", format(review_date, "%d/%m/%Y"), "<br>",
+            "PEF: ", sprintf("%.0f L/s", pef)
+          )
+        ),
+        color = "red"
+      ) +
       geom_text(
-        aes(y = pef + 10, label = sprintf("%.0f", pef)),
+        aes(
+          y = pef + 10,
+          label = sprintf("%.0f", pef)
+        ),
         size = 3.5
       ) +
-      labs(y = "PEF", color = "") +
+      labs(y = "PEF (L/s)", color = "") +
       theme_minimal()
-    ggplotly(p)%>%
-    layout(
-      showlegend = FALSE,
-      xaxis = list(
-        title = ""
+    
+    ggplotly(p, tooltip = "text") %>%
+      layout(
+        showlegend = FALSE,
+        xaxis = list(
+          title = "",
+          type = "date",
+          tickformat = "%d/%m/%Y"
+        )
       )
-    )
 })
 
   output$eosinophils_feno_plot <- renderPlotly({
     patient <- selected_patient()
+    
+    # Ensure dates are properly formatted
+    patient$review_date <- as.Date(patient$review_date)
 
     plot_ly(data = patient) %>%
       add_trace(
@@ -583,8 +682,12 @@ ggplotly(p, tooltip = "text") %>%
         y = ~eosinophil_level,
         name = "Eosinophil Level",
         type = "scatter",
-        mode = "lines",
-        line = list(color = "red")
+        mode = "lines+markers",
+        line = list(color = "red"),
+        hovertemplate = paste0(
+          "Eosinophils: %{y:.2f} x 10^9/L",
+          "<extra></extra>"
+        )
       ) %>%
       add_trace(
         x = ~review_date,
@@ -592,12 +695,16 @@ ggplotly(p, tooltip = "text") %>%
         name = "FeNO (ppb)",
         yaxis = "y2",
         type = "scatter",
-        mode = "lines",
-        line = list(color = "blue")
+        mode = "lines+markers",
+        line = list(color = "blue"),
+        hovertemplate = paste0(
+          "FeNO: %{y:.0f} ppb",
+          "<extra></extra>"
+        )
       ) %>%
       layout(
         yaxis = list(
-          title = "Eosinophil Level",
+          title = "Eosinophil Level (10^9/L)",
           side = "left"
         ),
         yaxis2 = list(
@@ -607,99 +714,187 @@ ggplotly(p, tooltip = "text") %>%
         ),
         xaxis = list(
           title = "",
+          type = "date",
+          tickformat = "%d/%m/%Y",
           showgrid = TRUE
         ),
-        showlegend = TRUE
+        showlegend = TRUE,
+        hovermode = "x unified"
       )
   })
 
-  output$act_plot <- renderPlotly({
+ output$act_plot <- renderPlotly({
     patient <- selected_patient()
 
+    # Convert review_date to Date type
+    patient$review_date <- as.Date(patient$review_date)
+    
     # Define control zones for visualization
-    poor_control <- data.frame(x = c(min(patient$Age), max(patient$Age)), y = c(15, 15))
-    not_well_controlled <- data.frame(x = c(min(patient$Age), max(patient$Age)), y = c(19, 19))
+    poor_control <- data.frame(
+      x = c(min(patient$review_date), max(patient$review_date)), 
+      y = c(15, 15)
+    )
+    not_well_controlled <- data.frame(
+      x = c(min(patient$review_date), max(patient$review_date)), 
+      y = c(19, 19)
+    )
 
-    p <- ggplot(patient, aes(x = Age)) +
+    p <- ggplot(patient, aes(x = review_date)) +
       # Add colored background zones
-      geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 5, ymax = 15),
-        fill = "#ffcccb", alpha = 0.3
-      ) +
-      geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 16, ymax = 19),
-        fill = "#ffffcc", alpha = 0.3
-      ) +
-      geom_rect(aes(xmin = min(Age), xmax = max(Age), ymin = 20, ymax = 25),
-        fill = "#ccffcc", alpha = 0.3
-      ) +
+      geom_rect(aes(
+        xmin = min(review_date), 
+        xmax = max(review_date), 
+        ymin = 5, 
+        ymax = 15
+      ), fill = "#ffcccb", alpha = 0.3) +
+      geom_rect(aes(
+        xmin = min(review_date), 
+        xmax = max(review_date), 
+        ymin = 15, 
+        ymax = 19
+      ), fill = "#ffffcc", alpha = 0.3) +
+      geom_rect(aes(
+        xmin = min(review_date), 
+        xmax = max(review_date), 
+        ymin = 19, 
+        ymax = 25
+      ), fill = "#ccffcc", alpha = 0.3) +
       # Add zone separator lines
-      geom_line(data = poor_control, aes(x = x, y = y), linetype = "dashed", color = "red") +
-      geom_line(data = not_well_controlled, aes(x = x, y = y), linetype = "dashed", color = "orange") +
+      geom_line(data = poor_control, aes(x = x, y = y), 
+        linetype = "dashed", color = "red") +
+      geom_line(data = not_well_controlled, aes(x = x, y = y), 
+        linetype = "dashed", color = "orange") +
       # Add ACT scores line and points
       geom_line(aes(y = act_score, color = "ACT Score")) +
-      geom_point(aes(y = act_score), size = 3) +
+      geom_point(
+        aes(
+          y = act_score,
+          text = paste0(
+            "Date: ", format(review_date, "%d/%m/%Y"), "<br>",
+            "ACT Score: ", act_score, "/25"
+          )
+        ),
+        color = "red",
+        size = 3
+      ) +
       # Add text annotations for latest value
       geom_text(
-        data = tail(patient, 1),
         aes(y = act_score + 1, label = sprintf("%d", act_score)),
         size = 3.5
       ) +
+      # Add zone labels
+      annotate("text", 
+        x = min(patient$review_date) + 20,
+        y = c(10, 17.5, 22.5),
+        label = c("Poor Control", "Not Well Controlled", "Well Controlled"),
+        hjust = 0,
+        color = c("red", "orange", "#049404")
+      ) +
       # Formatting
       scale_y_continuous(limits = c(5, 25), breaks = seq(5, 25, 5)) +
-      scale_color_manual(values = c("ACT Score" = "#9467bd")) +
+      scale_color_manual(values = c("ACT Score" = "red")) +
       labs(y = "ACT Score", color = "") +
       theme_minimal() +
       theme(
         panel.grid.minor = element_blank(),
-        legend.position = "none" 
+        legend.position = "none"
       )
 
-    ggplotly(p) %>%
+    ggplotly(p, tooltip = "text") %>%
       layout(
-        annotations = list(
-          list(
-            x = min(patient$Age)+0.4,
-            y = 10,
-            text = "Poor Control",
-            showarrow = FALSE,
-            font = list(color = "red")
-          ),
-          list(
-            x = min(patient$Age)+0.4,
-            y = 17.5,
-            text = "Not Well Controlled",
-            showarrow = FALSE,
-            font = list(color = "orange")
-          ),
-          list(
-            x = min(patient$Age)+0.4,
-            y = 22.5,
-            text = "Well Controlled",
-            showarrow = FALSE,
-            font = list(color = "green")
-          )
+        xaxis = list(
+          title = "",
+          type = "date",
+          tickformat = "%d/%m/%Y"
         )
       )
   })
 
 
-  observeEvent(input$edit_options, {
+# Update the BMI edit handler
+observeEvent(input$edit_bmi, {
+    removeModal()
+    patient <- selected_patient() %>% tail(1)
+    
+    # Convert kg to stones and pounds
+    stones <- floor(patient$`Weight (kg)` * 2.20462 / 14)
+    pounds <- round((patient$`Weight (kg)` * 2.20462) %% 14, 1)
+    
     showModal(modalDialog(
-      title = "Edit Patient Options",
+      title = "Edit BMI",
       div(
-        style = "text-align: center;",
-        actionButton("edit_smoking", "Edit Smoking Status",
-          style = "margin: 5px;"
+        div(
+          style = "display: flex; justify-content: space-between; align-items: center;",
+          div(
+            style = "flex: 1; margin-right: 10px;",
+            numericInput("new_weight", "Weight (kg):",
+              value = patient$`Weight (kg)`,
+              min = 30, max = 200, step = 0.1
+            )
+          ),
+          div(
+            style = "flex: 1;",
+            verbatimTextOutput("weight_in_stones")
+          )
         ),
-        actionButton("perfect_adherence", "Set Perfect Adherence",
-          style = "margin: 5px;"
+        numericInput("new_height", "Height (cm):",
+          value = patient$`Height (cm)`,
+          min = 120, max = 220, step = 0.1
         ),
-        actionButton("avoid_allergens", "Avoid Allergens",
-          style = "margin: 5px;"
-        )
+        verbatimTextOutput("bmi_calculation")
       ),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("save_bmi", "Save")
+      )
+    ))
+})
+
+# Add weight conversion output
+output$weight_in_stones <- renderText({
+    weight_kg <- input$new_weight
+    stones <- floor(weight_kg * 2.20462 / 14)
+    pounds <- round((weight_kg * 2.20462) %% 14, 1)
+    sprintf("(%.0fst %.1flb)", stones, pounds)
+})
+
+# Add BMI calculation output
+output$bmi_calculation <- renderText({
+    weight <- input$new_weight
+    height <- input$new_height/100  # Convert to meters
+    bmi <- weight/(height^2)
+    status <- if(bmi < 18.5) "Underweight"
+             else if(bmi < 25) "Normal"
+             else if(bmi < 30) "Overweight"
+             else "Obese"
+    
+    sprintf("Calculated BMI: %.1f (%s)", bmi, status)
+})
+
+# Fix the save_bmi handler
+observeEvent(input$save_bmi, {
+    req(input$patient_id)
+    
+    # Get the last row for current patient
+    last_row <- which(rv$patient_data$ID == input$patient_id)
+    last_row <- last_row[length(last_row)]
+    
+    weight <- input$new_weight
+    height <- input$new_height/100
+    bmi <- weight/(height^2)
+    
+    # Update weight, height and BMI
+    rv$patient_data$`Weight (kg)`[last_row] <- weight
+    rv$patient_data$`Height (cm)`[last_row] <- height * 100
+    rv$patient_data$BMI[last_row] <- bmi
+    
+    removeModal()
+    showModal(modalDialog(
+      title = "Success",
+      sprintf("BMI updated to %.1f", bmi),
       footer = modalButton("Close")
     ))
-  })
+})
 
   observeEvent(input$edit_smoking, {
     removeModal()
@@ -724,34 +919,48 @@ ggplotly(p, tooltip = "text") %>%
   })
 
   observeEvent(input$perfect_adherence, {
+    req(input$patient_id)
     removeModal()
-    last_row <- which(rv$patient_data$ID == input$patient_id)[length(which(rv$patient_data$ID == input$patient_id))]
+    
+    last_row <- which(rv$patient_data$ID == input$patient_id)
+    last_row <- last_row[length(last_row)]
     rv$patient_data$Adherence[last_row] <- 100
+    
     showModal(modalDialog(
-      title = "Success",
-      "Last adherence value set to 100%",
-      footer = modalButton("Close")
+        title = "Success",
+        "Last adherence value set to 100%",
+        footer = modalButton("Close")
     ))
-  })
+})
 
-  observeEvent(input$avoid_allergens, {
+observeEvent(input$avoid_allergens, {
     removeModal()
+    current_patient <- input$patient_id
+    
     # Reduce all IgE values by 50%
     allergen_cols <- c(
       "ige_pollen", "ige_cats", "ige_dogs", "ige_mould",
       "ige_grass", "ige_house_dust_mites"
     )
+    
+    # Get the indices for the current patient
+    patient_indices <- which(rv$patient_data$ID == current_patient)
+    last_row <- patient_indices[length(patient_indices)]
+    
+    # Update the reactive values
     for (col in allergen_cols) {
-      patient_data[[col]][patient_data$ID == input$patient_id] <-
-        patient_data[[col]][patient_data$ID == input$patient_id] * 0.5
+      rv$patient_data[[col]][last_row] <- rv$patient_data[[col]][last_row] * 0.5
     }
+    
+    # Also update total IgE
+    rv$patient_data$total_ige[last_row] <- rv$patient_data$total_ige[last_row] * 0.5
+    
     showModal(modalDialog(
       title = "Success",
       "Allergen exposure reduced by 50%",
       footer = modalButton("Close")
     ))
-  })
-
+})
   # 4. Add a button to update ACT score in your Edit Patient modal
   # Modify your observeEvent(input$edit_options, {...}) function
 
@@ -772,11 +981,12 @@ ggplotly(p, tooltip = "text") %>%
         # Add this new button
         actionButton("update_act", "Update ACT Score",
           style = "margin: 5px;"
-        )
+        ),
+        actionButton("edit_bmi", "Edit BMI",
+                     style = "margin: 5px;"
       ),
       footer = modalButton("Close")
-    ))
-  })
+    )))})
 
   # 5. Add the event handler for the ACT update button
 
@@ -1241,6 +1451,9 @@ output$exacerbation_timeline <- renderPlotly({
                        quiet = TRUE)
     }
   )
+  
+  
+
 }
 
 # Run the application

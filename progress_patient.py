@@ -49,14 +49,15 @@ def progress_patient(patient):
     for key in keys_to_modify:
         new_patient[key] = change_by_10_percent(patient[key])
     
-    # Add review date, within 1 month of previous date, same year
-    previous_review_date = datetime.strptime(
-        patient.get("review_date", datetime.now().strftime("%Y-%m-%d")), 
-        "%Y-%m-%d"
+    # Convert review date string to date object if it's a string
+    previous_review_date = (
+        datetime.strptime(patient["review_date"], "%Y-%m-%d").date()
+        if isinstance(patient["review_date"], str)
+        else patient["review_date"]
     )
     
     # Add one year
-    new_review_date = previous_review_date + timedelta(days=365)
+    new_review_date = (previous_review_date + timedelta(days=365))
     
     # Add random variation of ±1 month (30 days)
     month_variation = np.random.randint(-30, 31)
@@ -64,11 +65,11 @@ def progress_patient(patient):
     
     # Ensure date stays in same year
     if new_review_date.year > previous_review_date.year + 1:
-        new_review_date = datetime(new_review_date.year - 1, 12, 31)
+        new_review_date = datetime(new_review_date.year - 1, 12, 31).date()
     elif new_review_date.year < previous_review_date.year + 1:
-        new_review_date = datetime(new_review_date.year + 1, 1, 1)
+        new_review_date = datetime(new_review_date.year + 1, 1, 1).date()
     
-    new_patient["review_date"] = new_review_date.strftime("%Y-%m-%d")
+    new_patient["review_date"] = new_review_date  # Store as date object
 
     # Generate potential exacerbation dates
     exacerbation_dates = []
@@ -103,12 +104,12 @@ def progress_patient(patient):
         
         # Ensure minimum 30 days between exacerbations
         if not exacerbation_dates or min(
-            abs((datetime.strptime(existing_date, "%Y-%m-%d") - 
-                 exacerbation_date).days)
+            abs((existing_date - exacerbation_date).days)
             for existing_date in exacerbation_dates) >= 30:
-            exacerbation_dates.append(exacerbation_date.strftime("%Y-%m-%d"))
-            base_probability *= 0.6  # Reduce chance of additional exacerbations
+            exacerbation_dates.append(exacerbation_date)
+            base_probability *= 0.6
     
-    new_patient["exacerbation_dates"] = ",".join(sorted(exacerbation_dates)) if exacerbation_dates else "None"
+    # Store dates as list of date objects
+    new_patient["exacerbation_dates"] = exacerbation_dates if exacerbation_dates else None
 
     return new_patient
