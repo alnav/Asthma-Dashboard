@@ -76,9 +76,9 @@ def progress_patient(patient):
     
     # Base probability based on asthma severity
     severity_probabilities = {
-        "Mild": 0.1,
-        "Moderate": 0.2,
-        "Severe": 0.4
+        "Mild": 0.2,
+        "Moderate": 0.4,
+        "Severe": 0.8
     }
     base_probability = severity_probabilities.get(patient["Asthma Severity"], 0.2)
     
@@ -93,7 +93,7 @@ def progress_patient(patient):
         base_probability += 0.15
         
     # Check for exacerbations (max 4 per year for severe asthma)
-    max_exacerbations = 4 if patient["Asthma Severity"] == "Severe" else 3
+    max_exacerbations = 8 if patient["Asthma Severity"] == "Severe" else 6
     
     while (np.random.random() < base_probability and 
            len(exacerbation_dates) < max_exacerbations):
@@ -104,12 +104,19 @@ def progress_patient(patient):
         
         # Ensure minimum 30 days between exacerbations
         if not exacerbation_dates or min(
-            abs((existing_date - exacerbation_date).days)
+            abs((datetime.strptime(existing_date, "%Y-%m-%d").date() - exacerbation_date).days)
             for existing_date in exacerbation_dates) >= 30:
-            exacerbation_dates.append(exacerbation_date)
+            # Convert date to string before appending
+            exacerbation_dates.append(exacerbation_date.strftime("%Y-%m-%d"))
             base_probability *= 0.6
     
-    # Store dates as list of date objects
+    # Store dates as list of strings
     new_patient["exacerbation_dates"] = exacerbation_dates if exacerbation_dates else None
+
+     # Store dates as comma-separated string
+    if exacerbation_dates:
+        new_patient["exacerbation_dates"] = ",".join(exacerbation_dates)
+    else:
+        new_patient["exacerbation_dates"] = "None"
 
     return new_patient

@@ -1,0 +1,60 @@
+output$lung_function_plot <- renderPlotly({
+    patient <- selected_patient()
+    
+    # Ensure dates are properly formatted
+    patient$review_date <- as.Date(patient$review_date)
+
+    plot_ly(data = patient) %>%
+      add_trace(
+        x = ~review_date,
+        y = ~fev1_actual,
+        name = "FEV1",
+        type = "scatter",
+        mode = "lines+markers+text",
+        line = list(color = "red"),
+        text = ~sprintf("%.2f (%.0f%%)", fev1_actual, as.numeric(fev1_percent_predicted)),
+        textposition = "top center",
+        hovertemplate = paste0(
+          "Date: %{x|%d/%m/%Y}<br>",
+          "FEV1: %{y:.2f} L (%{text})",
+          "<extra></extra>"
+        ),
+        textfont = list(size = 10)
+      ) %>%
+      add_trace(
+        x = ~review_date,
+        y = ~fvc_actual,
+        name = "FVC",
+        yaxis = "y2",
+        type = "scatter",
+        mode = "lines+markers+text",
+        line = list(color = "blue"),
+        text = ~sprintf("%.2f (%.0f%%)", fvc_actual, as.numeric(fvc_percent_predicted)),
+        textposition = "top center",
+        hovertemplate = paste0(
+          "Date: %{x|%d/%m/%Y}<br>",
+          "FVC: %{y:.2f} L (%{text})",
+          "<extra></extra>"
+        ),
+        textfont = list(size = 10)
+      ) %>%
+      layout(
+        yaxis = list(
+          title = "FEV1 (L)",
+          side = "left"
+        ),
+        yaxis2 = list(
+          title = "FVC (L)",
+          overlaying = "y",
+          side = "right"
+        ),
+        xaxis = list(
+          title = "",
+          type = "date",
+          tickformat = "%d/%m/%Y",
+          showgrid = TRUE
+        ),
+        showlegend = TRUE,
+        hovermode = "x unified"
+      )
+})

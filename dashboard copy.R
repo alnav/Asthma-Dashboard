@@ -5,7 +5,6 @@ library(dplyr)
 library(plotly)
 library(flexdashboard)
 library(rmarkdown)
-library(ggrepel)
 
 # Load the dataset
 patient_data <- read_csv("patient_dataset.csv")
@@ -507,6 +506,44 @@ server <- function(input, output, session) {
     )
   })
 
+  # Deprecated FEV1 plot
+'
+  output$lung_function_plot <- renderPlotly({
+    patient <- selected_patient()
+    
+
+    
+p <- ggplot(patient, aes(x = review_date)) +
+  geom_line(aes(y = fev1_actual, color = "FEV1 (Litres)")) +
+  geom_point(
+    aes(
+      y = fev1_actual,
+      text = paste0(
+        "Date: ", format(review_date, "%d/%m/%Y"), "<br>",
+        "FEV1: ", sprintf("%.2f L", fev1_actual), "<br>",
+        "FEV1 % predicted: ", sprintf("%.0f%%", fev1_percent_predicted)
+      )
+    ),
+    color = "red"
+  ) +
+  geom_text(
+    aes(
+      y = fev1_actual + 0.05,
+      label = sprintf("%.2f (%.0f%%)", fev1_actual, fev1_percent_predicted)
+    ),
+    size = 3.5
+  ) +
+  labs(y = "FEV1 (L)", color = "") +
+  theme_minimal()
+
+ggplotly(p, tooltip = "text") %>%
+  layout(
+    showlegend = FALSE,
+    xaxis = list(title = "")
+  )
+
+  })'
+
 output$lung_function_plot <- renderPlotly({
     patient <- selected_patient()
     
@@ -521,7 +558,7 @@ output$lung_function_plot <- renderPlotly({
         type = "scatter",
         mode = "lines+markers+text",
         line = list(color = "red"),
-        text = ~sprintf("%.2f, %.0f%%", fev1_actual, as.numeric(fev1_percent_predicted)),
+        text = ~sprintf("%.2f (%.0f%%)", fev1_actual, as.numeric(fev1_percent_predicted)),
         textposition = "top center",
         hovertemplate = paste0(
           "FEV1: %{y:.2f} L (%{text})",
@@ -537,7 +574,7 @@ output$lung_function_plot <- renderPlotly({
         type = "scatter",
         mode = "lines+markers+text",
         line = list(color = "blue"),
-        text = ~sprintf("%.2f, %.0f%%", fvc_actual, as.numeric(fvc_percent_predicted)),
+        text = ~sprintf("%.2f (%.0f%%)", fvc_actual, as.numeric(fvc_percent_predicted)),
         textposition = "top center",
         hovertemplate = paste0(
           "FVC: %{y:.2f} L (%{text})",
@@ -556,14 +593,11 @@ output$lung_function_plot <- renderPlotly({
           side = "right"
         ),
         xaxis = list(
-  title = "",
-  type = "date",
-  tickformat = "%d/%m/%Y",
-  showgrid = TRUE,
-  ticktext = ~format(review_date, "%d/%m/%Y"),
-  tickvals = ~review_date,
-  tickmode = "array"
-),
+          title = "",
+          type = "date",
+          tickformat = "%d/%m/%Y",
+          showgrid = TRUE
+        ),
         showlegend = TRUE,
         hovermode = "x unified"
       )
@@ -574,53 +608,37 @@ output$adherence_plot <- renderPlotly({
     
     # Ensure dates are properly formatted
     patient$review_date <- as.Date(patient$review_date)
-
-    plot_ly(data = patient) %>%
-      # Add target line at 80%
-      add_trace(
-        x = c(min(patient$review_date), max(patient$review_date)),
-        y = c(80, 80),
-        type = "scatter",
-        mode = "lines",
-        line = list(color = "red", dash = "dash"),
-        showlegend = FALSE,
-        hoverinfo = "none"
-      ) %>%
-      # Add adherence line and points
-      add_trace(
-        x = ~review_date,
-        y = ~Adherence,
-        name = "Adherence (%)",
-        type = "scatter",
-        mode = "lines+markers+text",
-        line = list(color = "#0000FF"),
-        text = ~sprintf("%.0f%%", Adherence),
-        textposition = "top center",
-        marker = list(color = "#0000FF", size = 8),
-        hovertemplate = paste0(
-          "Date: %{x|%d/%m/%Y}<br>",
-          "Adherence: %{y:.0f}%",
-          "<extra></extra>"
+    
+    p <- ggplot(patient, aes(x = review_date)) +
+      geom_hline(yintercept = 80, color = "red", linetype = "dashed") +
+      geom_line(aes(y = Adherence, color = "Adherence (%)")) +
+      geom_point(
+        aes(
+          y = Adherence,
+          text = paste0(
+            "Date: ", format(review_date, "%d/%m/%Y"), "<br>",
+            "Adherence: ", sprintf("%.0f%%", Adherence)
+          )
         ),
-        textfont = list(size = 12)
-      ) %>%
+        color = "#0000FF"
+      ) +
+      geom_text(
+        aes(y = Adherence + 5, label = sprintf("%.0f%%", Adherence)),
+        size = 3.5
+      ) +
+      labs(y = "Adherence (%)", color = "") +
+      scale_color_manual(values = c("Adherence (%)" = "#0000FF")) +
+      scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = "text") %>%
       layout(
-        yaxis = list(
-          title = "Adherence (%)",
-          range = c(0, 100),
-          dtick = 20
-        ),
+        showlegend = FALSE,
         xaxis = list(
           title = "",
           type = "date",
-          tickformat = "%d/%m/%Y",
-          showgrid = TRUE,
-          ticktext = ~format(review_date, "%d/%m/%Y"),
-          tickvals = ~review_date,
-          tickmode = "array"
-        ),
-        showlegend = FALSE,
-        hovermode = "x unified"
+          tickformat = "%d/%m/%Y"
+        )
       )
 })
 
@@ -663,7 +681,7 @@ output$adherence_plot <- renderPlotly({
       )
 })
 
-output$eosinophils_feno_plot <- renderPlotly({
+  output$eosinophils_feno_plot <- renderPlotly({
     patient <- selected_patient()
     
     # Ensure dates are properly formatted
@@ -675,15 +693,12 @@ output$eosinophils_feno_plot <- renderPlotly({
         y = ~eosinophil_level,
         name = "Eosinophil Level",
         type = "scatter",
-        mode = "lines+markers+text",
+        mode = "lines+markers",
         line = list(color = "red"),
-        text = ~sprintf("%.2f", eosinophil_level),
-        textposition = "top center",
         hovertemplate = paste0(
           "Eosinophils: %{y:.2f} x 10^9/L",
           "<extra></extra>"
-        ),
-        textfont = list(size = 12)
+        )
       ) %>%
       add_trace(
         x = ~review_date,
@@ -691,15 +706,12 @@ output$eosinophils_feno_plot <- renderPlotly({
         name = "FeNO (ppb)",
         yaxis = "y2",
         type = "scatter",
-        mode = "lines+markers+text",
+        mode = "lines+markers",
         line = list(color = "blue"),
-        text = ~sprintf("%.0f", FeNO_ppb),
-        textposition = "top center",
         hovertemplate = paste0(
           "FeNO: %{y:.0f} ppb",
           "<extra></extra>"
-        ),
-        textfont = list(size = 12)
+        )
       ) %>%
       layout(
         yaxis = list(
@@ -720,7 +732,7 @@ output$eosinophils_feno_plot <- renderPlotly({
         showlegend = TRUE,
         hovermode = "x unified"
       )
-})
+  })
 
  output$act_plot <- renderPlotly({
     patient <- selected_patient()

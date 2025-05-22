@@ -1,0 +1,11 @@
+shiny
+readr
+ggplot2
+dplyr
+plotly
+flexdashboard
+rmarkdown
+DT
+shinydashboard
+shinyWidgets
+tidyr
