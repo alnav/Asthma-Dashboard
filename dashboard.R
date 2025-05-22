@@ -521,8 +521,8 @@ output$lung_function_plot <- renderPlotly({
         type = "scatter",
         mode = "lines+markers+text",
         line = list(color = "red"),
-        text = ~sprintf("%.2f, %.0f%%", fev1_actual, as.numeric(fev1_percent_predicted)),
-        textposition = "top center",
+        text = ~sprintf("%.1f, %.0f%%", fev1_actual, as.numeric(fev1_percent_predicted)),
+        textposition = "top",
         hovertemplate = paste0(
           "FEV1: %{y:.2f} L (%{text})",
           "<extra></extra>"
@@ -537,8 +537,8 @@ output$lung_function_plot <- renderPlotly({
         type = "scatter",
         mode = "lines+markers+text",
         line = list(color = "blue"),
-        text = ~sprintf("%.2f, %.0f%%", fvc_actual, as.numeric(fvc_percent_predicted)),
-        textposition = "top center",
+        text = ~sprintf("%.1f, %.0f%%", fvc_actual, as.numeric(fvc_percent_predicted)),
+        textposition = "top",
         hovertemplate = paste0(
           "FVC: %{y:.2f} L (%{text})",
           "<extra></extra>"
@@ -624,45 +624,48 @@ output$adherence_plot <- renderPlotly({
       )
 })
 
-  output$pef_plot <- renderPlotly({
+output$pef_plot <- renderPlotly({
     patient <- selected_patient()
     
     # Ensure dates are properly formatted
     patient$review_date <- as.Date(patient$review_date)
-    
-    p <- ggplot(patient, aes(x = review_date)) +
-      geom_line(aes(y = pef, color = "PEF (L/s)")) +
-      geom_point(
-        aes(
-          y = pef,
-          text = paste0(
-            "Date: ", format(review_date, "%d/%m/%Y"), "<br>",
-            "PEF: ", sprintf("%.0f L/s", pef)
-          )
+
+    plot_ly(data = patient) %>%
+      add_trace(
+        x = ~review_date,
+        y = ~pef,
+        name = "PEF (L/s)",
+        type = "scatter",
+        mode = "lines+markers+text",
+        line = list(color = "red"),
+        text = ~sprintf("%.0f", pef),
+        textposition = "top center",
+        marker = list(color = "red", size = 8),
+        hovertemplate = paste0(
+          "Date: %{x|%d/%m/%Y}<br>",
+          "PEF: %{y:.0f} L/s",
+          "<extra></extra>"
         ),
-        color = "red"
-      ) +
-      geom_text(
-        aes(
-          y = pef + 10,
-          label = sprintf("%.0f", pef)
-        ),
-        size = 3.5
-      ) +
-      labs(y = "PEF (L/s)", color = "") +
-      theme_minimal()
-    
-    ggplotly(p, tooltip = "text") %>%
+        textfont = list(size = 12)
+      ) %>%
       layout(
-        showlegend = FALSE,
+        yaxis = list(
+          title = "PEF (L/s)",
+          side = "left"
+        ),
         xaxis = list(
           title = "",
           type = "date",
-          tickformat = "%d/%m/%Y"
-        )
+          tickformat = "%d/%m/%Y",
+          showgrid = TRUE,
+          ticktext = ~format(review_date, "%d/%m/%Y"),
+          tickvals = ~review_date,
+          tickmode = "array"
+        ),
+        showlegend = FALSE,
+        hovermode = "x unified"
       )
 })
-
 output$eosinophils_feno_plot <- renderPlotly({
     patient <- selected_patient()
     
@@ -715,7 +718,10 @@ output$eosinophils_feno_plot <- renderPlotly({
           title = "",
           type = "date",
           tickformat = "%d/%m/%Y",
-          showgrid = TRUE
+          showgrid = TRUE,
+          ticktext = ~format(review_date, "%d/%m/%Y"),
+          tickvals = ~review_date,
+          tickmode = "array"
         ),
         showlegend = TRUE,
         hovermode = "x unified"
