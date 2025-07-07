@@ -11,7 +11,7 @@ library(tinytex)
 # Load the dataset
 patient_data <- read_csv("patient_dataset.csv")
 
-# Define UI
+# UI
 ui <- fluidPage(
   titlePanel("ASTHMA DASHBOARD v1.0"),
   sidebarLayout(
@@ -19,7 +19,7 @@ ui <- fluidPage(
       width = 3,
       selectizeInput("patient_id", "Select Patient ID:",
         choices = unique(patient_data$ID),
-        selected = unique(patient_data$ID)[1], # Select the first patient by default
+        selected = unique(patient_data$ID)[1],
       ),
       div(
         style = "display: flex; align-items: center;",
@@ -80,26 +80,33 @@ ui <- fluidPage(
     mainPanel(
       width = 9,
       fluidRow(
-        column(
-          8, # Increase the width of the ACT chart
-          h3("Asthma Control Test (ACT) Score"),
-          plotlyOutput("act_plot")
-        ),
-        column(
-          4, # Gauge column
-          align = "center",
-          h3("Risk of exacerbation in the next month"),
-          div(
-            style = "width: 100%;
-            height: 200px;
-            display: flex;
-            justify-content: center;
-            align-items: center; padding-left: 0;",
-            gaugeOutput("risk_gauge")
-          ),
-          uiOutput("risk_factors") # Add the dynamic risk factors box
-        )
-      ),
+  column(
+    8, 
+    h3("Asthma Control Test (ACT) Score"),
+    plotlyOutput("act_plot")
+  ),
+  column(
+  4,
+  align = "center",
+  div(
+    style = "text-align: center;",
+    h3("Risk of exacerbation in the next month"),
+    tags$span(
+      style = "color: #666; font-style: italic; font-size: 14px;",
+      "(proof of concept)"
+    )
+  ),
+  div(
+    style = "width: 100%;
+    height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center; padding-left: 0;",
+    gaugeOutput("risk_gauge")
+  ),
+  uiOutput("risk_factors")
+)
+),
       fluidRow(
         column(
           6,
@@ -135,7 +142,7 @@ ui <- fluidPage(
   )
 )
 
-# Define server logic
+# server logic
 server <- function(input, output, session) {
   # Create reactive values storage
   rv <- reactiveValues(
@@ -186,7 +193,6 @@ server <- function(input, output, session) {
     beta_adherence <- -0.02 # Better adherence reduces risk
     beta_bmi <- 0.01 # BMI contribution to risk
 
-    # Input validation with defaults
     fev1 <- ifelse(is.na(patient$fev1_percent_predicted),
       80, patient$fev1_percent_predicted
     )
@@ -202,14 +208,14 @@ server <- function(input, output, session) {
       "Never Smoked" = 0,
       "Former Smoker" = 1,
       "Current Smoker" = 2,
-      0 # Default
+      0 
     )
 
     severity_numeric <- switch(patient$`Asthma Severity`,
       "Mild" = 0,
       "Moderate" = 1,
       "Severe" = 2,
-      0 # Default
+      0 
     )
     # Calculate log odds
     log_odds <- beta_0 +
@@ -238,7 +244,6 @@ server <- function(input, output, session) {
     rv$patient_data[rv$patient_data$ID == input$patient_id, ]
   })
 
-  # Update risk gauge
   output$risk_gauge <- renderGauge({
     req(selected_patient())
     patient <- selected_patient() %>% tail(1)
@@ -290,7 +295,7 @@ server <- function(input, output, session) {
       style = "margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;",
       h5("Risk Factors:", style = "font-weight: bold; color: red;"),
       p(factors_text, style = "font-size: 12px; color: #666; margin-bottom: 15px;"),
-      # Add Edit Patient button here
+
       actionButton("edit_options", "Modify Risk Factors",
         style = "
           background-color: #880808;
@@ -345,7 +350,7 @@ server <- function(input, output, session) {
     latest <- tail(patient, 1)
     previous <- tail(patient, 2)[1, ]
 
-    # Calculate FEV1 percent change
+
     fev1_change <- if (nrow(patient) > 1) {
       change <- ((latest$fev1_actual - previous$fev1_actual)
       / previous$fev1_actual) * 100
@@ -358,7 +363,7 @@ server <- function(input, output, session) {
       ""
     }
 
-    # Calculate PEF percent change
+
     pef_change <- if (nrow(patient) > 1) {
       change_pef <- ((latest$pef - previous$pef) / previous$pef) * 100
       sprintf(
@@ -512,7 +517,7 @@ server <- function(input, output, session) {
   output$lung_function_plot <- renderPlotly({
     patient <- selected_patient()
 
-    # Ensure dates are properly formatted
+
     patient$review_date <- as.Date(patient$review_date)
 
     plot_ly(data = patient) %>%
@@ -574,11 +579,11 @@ server <- function(input, output, session) {
   output$adherence_plot <- renderPlotly({
     patient <- selected_patient()
 
-    # Ensure dates are properly formatted
+
     patient$review_date <- as.Date(patient$review_date)
 
     plot_ly(data = patient) %>%
-      # Add target line at 80%
+
       add_trace(
         x = c(min(patient$review_date), max(patient$review_date)),
         y = c(80, 80),
@@ -588,7 +593,7 @@ server <- function(input, output, session) {
         showlegend = FALSE,
         hoverinfo = "none"
       ) %>%
-      # Add adherence line and points
+
       add_trace(
         x = ~review_date,
         y = ~Adherence,
@@ -629,7 +634,7 @@ server <- function(input, output, session) {
   output$pef_plot <- renderPlotly({
     patient <- selected_patient()
 
-    # Ensure dates are properly formatted
+
     patient$review_date <- as.Date(patient$review_date)
 
     plot_ly(data = patient) %>%
@@ -668,10 +673,10 @@ server <- function(input, output, session) {
         hovermode = "x unified"
       )
   })
-  output$eosinophils_feno_plot <- renderPlotly({
+
+output$eosinophils_feno_plot <- renderPlotly({
     patient <- selected_patient()
 
-    # Ensure dates are properly formatted
     patient$review_date <- as.Date(patient$review_date)
 
     plot_ly(data = patient) %>%
@@ -720,7 +725,10 @@ server <- function(input, output, session) {
           title = "",
           type = "date",
           tickformat = "%d/%m/%Y",
-          showgrid = TRUE
+          showgrid = TRUE,
+          ticktext = ~ format(review_date, "%d/%m/%Y"),
+          tickvals = ~review_date,
+          tickmode = "array"
         ),
         showlegend = TRUE,
         hovermode = "x unified"
@@ -730,10 +738,8 @@ server <- function(input, output, session) {
   output$act_plot <- renderPlotly({
     patient <- selected_patient()
 
-    # Convert review_date to Date type
     patient$review_date <- as.Date(patient$review_date)
 
-    # Define control zones for visualization
     poor_control <- data.frame(
       x = c(min(patient$review_date), max(patient$review_date)),
       y = c(15, 15)
@@ -744,7 +750,6 @@ server <- function(input, output, session) {
     )
 
     p <- ggplot(patient, aes(x = review_date)) +
-      # Add colored background zones
       geom_rect(aes(
         xmin = min(review_date),
         xmax = max(review_date),
@@ -763,7 +768,6 @@ server <- function(input, output, session) {
         ymin = 19,
         ymax = 25
       ), fill = "#ccffcc", alpha = 0.3) +
-      # Add zone separator lines
       geom_line(
         data = poor_control, aes(x = x, y = y),
         linetype = "dashed", color = "red"
@@ -772,7 +776,6 @@ server <- function(input, output, session) {
         data = not_well_controlled, aes(x = x, y = y),
         linetype = "dashed", color = "orange"
       ) +
-      # Add ACT scores line and points
       geom_line(aes(y = act_score, color = "ACT Score")) +
       geom_point(
         aes(
@@ -785,12 +788,10 @@ server <- function(input, output, session) {
         color = "red",
         size = 3
       ) +
-      # Add text annotations for latest value
       geom_text(
         aes(y = act_score + 1, label = sprintf("%d", act_score)),
         size = 3.5
       ) +
-      # Add zone labels
       annotate("text",
         x = min(patient$review_date) + 120,
         y = c(10, 17, 22),
@@ -799,7 +800,6 @@ server <- function(input, output, session) {
         vjust = 0,
         color = c("red", "orange", "#049404")
       ) +
-      # Formatting
       scale_y_continuous(limits = c(5, 25), breaks = seq(5, 25, 5)) +
       scale_color_manual(values = c("ACT Score" = "red")) +
       labs(y = "ACT Score", color = "") +
@@ -820,12 +820,10 @@ server <- function(input, output, session) {
   })
 
 
-  # Update the BMI edit handler
   observeEvent(input$edit_bmi, {
     removeModal()
     patient <- selected_patient() %>% tail(1)
 
-    # Convert kg to stones and pounds
     stones <- floor(patient$`Weight (kg)` * 2.20462 / 14)
     pounds <- round((patient$`Weight (kg)` * 2.20462) %% 14, 1)
 
@@ -859,7 +857,6 @@ server <- function(input, output, session) {
     ))
   })
 
-  # Add weight conversion output
   output$weight_in_stones <- renderText({
     weight_kg <- input$new_weight
     stones <- floor(weight_kg * 2.20462 / 14)
@@ -867,10 +864,9 @@ server <- function(input, output, session) {
     sprintf("(%.0fst %.1flb)", stones, pounds)
   })
 
-  # Add BMI calculation output
   output$bmi_calculation <- renderText({
     weight <- input$new_weight
-    height <- input$new_height / 100 # Convert to meters
+    height <- input$new_height / 100 
     bmi <- weight / (height^2)
     status <- if (bmi < 18.5) {
       "Underweight"
@@ -885,11 +881,9 @@ server <- function(input, output, session) {
     sprintf("Calculated BMI: %.1f (%s)", bmi, status)
   })
 
-  # Fix the save_bmi handler
   observeEvent(input$save_bmi, {
     req(input$patient_id)
 
-    # Get the last row for current patient
     last_row <- which(rv$patient_data$ID == input$patient_id)
     last_row <- last_row[length(last_row)]
 
@@ -897,7 +891,6 @@ server <- function(input, output, session) {
     height <- input$new_height / 100
     bmi <- weight / (height^2)
 
-    # Update weight, height and BMI
     rv$patient_data$`Weight (kg)`[last_row] <- weight
     rv$patient_data$`Height (cm)`[last_row] <- height * 100
     rv$patient_data$BMI[last_row] <- bmi
@@ -951,22 +944,18 @@ server <- function(input, output, session) {
     removeModal()
     current_patient <- input$patient_id
 
-    # Reduce all IgE values by 50%
     allergen_cols <- c(
       "ige_pollen", "ige_cats", "ige_dogs", "ige_mould",
       "ige_grass", "ige_house_dust_mites"
     )
 
-    # Get the indices for the current patient
     patient_indices <- which(rv$patient_data$ID == current_patient)
     last_row <- patient_indices[length(patient_indices)]
 
-    # Update the reactive values
     for (col in allergen_cols) {
       rv$patient_data[[col]][last_row] <- rv$patient_data[[col]][last_row] * 0.5
     }
 
-    # Also update total IgE
     rv$patient_data$total_ige[last_row] <- rv$patient_data$total_ige[last_row] * 0.5
 
     showModal(modalDialog(
@@ -975,8 +964,7 @@ server <- function(input, output, session) {
       footer = modalButton("Close")
     ))
   })
-  # 4. Add a button to update ACT score in your Edit Patient modal
-  # Modify your observeEvent(input$edit_options, {...}) function
+
 
   observeEvent(input$edit_options, {
     showModal(modalDialog(
@@ -992,7 +980,6 @@ server <- function(input, output, session) {
         actionButton("avoid_allergens", "Avoid Allergens",
           style = "margin: 5px;"
         ),
-        # Add this new button
         actionButton("update_act", "Update ACT Score",
           style = "margin: 5px;"
         ),
@@ -1004,7 +991,6 @@ server <- function(input, output, session) {
     ))
   })
 
-  # 5. Add the event handler for the ACT update button
 
   observeEvent(input$update_act, {
     removeModal()
@@ -1012,7 +998,6 @@ server <- function(input, output, session) {
     showModal(modalDialog(
       title = "Update ACT Score",
 
-      # Create a small form for the 5 ACT questions
       div(
         h4("In the past 4 weeks:"),
 
@@ -1102,7 +1087,6 @@ server <- function(input, output, session) {
         )
       ),
 
-      # Add calculation summary that updates when options are selected
       uiOutput("act_calculation"),
       footer = tagList(
         modalButton("Cancel"),
@@ -1113,23 +1097,18 @@ server <- function(input, output, session) {
 
 
 
-  # Modify the download handler
   output$download_report <- downloadHandler(
     filename = function() {
-      # Generate unique filename with patient ID and date
       patient <- selected_patient() %>% tail(1)
       paste0("patient_report_", patient$ID, "_", format(Sys.Date(), "%Y%m%d"), ".pdf")
     },
     content = function(file) {
-      # Create a temporary Rmd file
       tempReport <- file.path(tempdir(), "report.Rmd")
 
-      # Get patient data
       patient <- selected_patient()
       latest <- tail(patient, 1)
       previous <- if (nrow(patient) > 1) patient[nrow(patient) - 1, ] else latest
 
-      # Write the report content
       writeLines(sprintf(
         '
       ---
@@ -1160,13 +1139,11 @@ server <- function(input, output, session) {
       ## Current Treatment
       %s
       ',
-        # Patient Information
         latest$Name, latest$nhs_number,
         format(as.Date(latest$birth_date), "%d/%m/%Y"),
         latest$Age, latest$Sex, latest$Ethnicity,
         latest$`Asthma Severity`,
 
-        # Clinical Metrics with dates
         latest$act_score,
         format(as.Date(latest$review_date), "%d/%m/%Y"),
         previous$act_score,
@@ -1186,16 +1163,13 @@ server <- function(input, output, session) {
         previous$eosinophil_level,
         format(as.Date(previous$review_date), "%d/%m/%Y"),
 
-        # Risk Factors
         latest$BMI,
         latest$`Smoking Status`,
         calculate_risk(latest),
 
-        # Treatment
         latest$treatment
       ), tempReport)
 
-      # Render the report
       rmarkdown::render(tempReport,
         output_file = file,
         quiet = TRUE
@@ -1204,16 +1178,13 @@ server <- function(input, output, session) {
   )
 
 
-  # 5. Add a plotly timeline for exacerbation dates
   output$exacerbation_timeline <- renderPlotly({
     patient <- selected_patient()
 
-    # Get date range from patient data
     date_range <- range(as.Date(patient$review_date))
     start_date <- date_range[1]
     end_date <- date_range[2]
 
-    # Convert comma-separated dates to vector safely
     exacerbation_dates <- NULL
     if (!is.null(patient$exacerbation_dates)) {
       dates_str <- patient$exacerbation_dates[patient$exacerbation_dates != "None"]
@@ -1223,7 +1194,6 @@ server <- function(input, output, session) {
       }
     }
 
-    # Create base plot
     p <- plot_ly() %>%
       layout(
         yaxis = list(
@@ -1242,7 +1212,6 @@ server <- function(input, output, session) {
         showlegend = FALSE
       )
 
-    # Add markers and text if there are exacerbation dates
     if (!is.null(exacerbation_dates) && length(exacerbation_dates) > 0) {
       p <- p %>%
         add_trace(
@@ -1271,16 +1240,13 @@ server <- function(input, output, session) {
   })
 
 
-  # 6. Add reactive calculation of ACT score
   output$act_calculation <- renderUI({
-    # Calculate total from all questions
     q1 <- as.numeric(input$act_q1)
     q2 <- as.numeric(input$act_q2)
     q3 <- as.numeric(input$act_q3)
     q4 <- as.numeric(input$act_q4)
     q5 <- as.numeric(input$act_q5)
 
-    # Handle NAs
     q1 <- if (is.na(q1)) 0 else q1
     q2 <- if (is.na(q2)) 0 else q2
     q3 <- if (is.na(q3)) 0 else q3
@@ -1311,16 +1277,13 @@ server <- function(input, output, session) {
     )
   })
 
-  # 7. Add event handler to save the ACT score
   observeEvent(input$save_act, {
-    # Calculate total from all questions
     q1 <- as.numeric(input$act_q1)
     q2 <- as.numeric(input$act_q2)
     q3 <- as.numeric(input$act_q3)
     q4 <- as.numeric(input$act_q4)
     q5 <- as.numeric(input$act_q5)
 
-    # Check if all questions are answered
     if (any(is.na(c(q1, q2, q3, q4, q5)))) {
       showModal(modalDialog(
         title = "Error",
@@ -1332,14 +1295,12 @@ server <- function(input, output, session) {
 
     total <- q1 + q2 + q3 + q4 + q5
 
-    # Update the ACT score in the dataset
     last_row <- which(rv$patient_data$ID == input$patient_id)
     last_row <- last_row[length(last_row)]
     rv$patient_data$act_score[last_row] <- total
 
     removeModal()
 
-    # Show confirmation
     showModal(modalDialog(
       title = "Success",
       sprintf("ACT Score updated to %d/25", total),
@@ -1349,127 +1310,6 @@ server <- function(input, output, session) {
 
 
 
-  # observeEvent(input$generate_report, {
-  #     patient <- selected_patient()
-  #     latest <- tail(patient, 1)
-  #     previous <- if(nrow(patient) > 1) patient[nrow(patient)-1,] else latest
-
-  #     # Generate report text for modal
-  #     report_text <- tags$div(
-  #       style = "font-family: Arial; line-height: 1.5; padding: 20px;",
-  #       tags$h3("Patient Information"),
-  #       tags$p(paste("Name:", latest$Name)),
-  #       tags$p(paste("NHS Number:", latest$nhs_number)),
-  #       tags$p(paste("Date of Birth:", format(as.Date(latest$birth_date), "%d/%m/%Y"))),
-  #       tags$p(paste("Age:", latest$Age)),
-  #       tags$p(paste("Sex:", latest$Sex)),
-  #       tags$p(paste("Ethnicity:", latest$Ethnicity)),
-
-  #       tags$h3("Clinical Metrics"),
-  #       tags$p(paste("ACT Score:", sprintf("%.0f/25", latest$act_score), "-", format(as.Date(latest$review_date), "%d/%m/%Y"), sprintf("(%.0f/25 on %s)", previous$act_score, format(as.Date(previous$review_date), "%d/%m/%Y")))),
-  #       tags$p(paste("FEV1:", sprintf("%.2fL (%.0f%%)", latest$fev1_actual, latest$fev1_percent_predicted), sprintf("- %s (%.2fL (%.0f%%) on %s)", format(as.Date(latest$review_date), "%d/%m/%Y"), previous$fev1_actual, previous$fev1_percent_predicted, format(as.Date(previous$review_date), "%d/%m/%Y")))),
-  #       tags$p(paste("PEF:", sprintf("%.0f L/min", latest$pef), "-", format(as.Date(latest$review_date), "%d/%m/%Y"), sprintf("(%.0f on %s)", previous$pef, format(as.Date(previous$review_date), "%d/%m/%Y")))),
-  #       tags$p(paste("FeNO:", sprintf("%.1fppb", latest$FeNO_ppb), sprintf("- %s (%.1fppb on %s)", format(as.Date(latest$review_date), "%d/%m/%Y"), previous$FeNO_ppb, format(as.Date(previous$review_date), "%d/%m/%Y")))),
-  #       tags$p(paste("Eosinophil Count:", sprintf("%.2f", latest$eosinophil_level), sprintf("- %s (%.2f on %s)", format(as.Date(latest$review_date), "%d/%m/%Y"), previous$eosinophil_level, format(as.Date(previous$review_date), "%d/%m/%Y")))),
-
-  #       tags$h3("Risk Factors"),
-  #       tags$p(paste("Asthma Severity:", latest$`Asthma Severity`)),
-  #       tags$p(paste("BMI:", sprintf("%.1f", latest$BMI))),
-  #       tags$p(paste("Smoking Status:", latest$`Smoking Status`)),
-  #       tags$p(paste("Adherence:", sprintf("%.0f", latest$Adherence))),
-  #       tags$p(paste("Current Risk Score:", sprintf("%.1f%%", calculate_risk(latest)))),
-
-  #       tags$h3("Current Treatment"),
-  #       tags$p(latest$treatment)
-  #     )
-
-  #     # Show modal with report preview and download button
-  #     showModal(modalDialog(
-  #       title = "Patient Report",
-  #       size = "l",
-  #       report_text,
-  #       easyClose = TRUE,
-  #       footer = tagList(
-  #         downloadButton("download_report", "Download Report"),
-  #         modalButton("Close")
-  #       )
-  #     ))
-  # })
-
-  # output$download_report <- downloadHandler(
-  #     filename = function() {
-  #         patient <- selected_patient() %>% tail(1)
-  #         paste0("patient_report_", patient$ID, "_", format(Sys.Date(), "%Y%m%d"), ".txt")
-  #     },
-  #     content = function(file) {
-  #         patient <- selected_patient()
-  #         latest <- tail(patient, 1)
-  #         previous <- if(nrow(patient) > 1) patient[nrow(patient)-1,] else latest
-
-  #         # Create report content
-  #         report_content <- sprintf('PATIENT REPORT
-
-  # PATIENT INFORMATION
-  # - Name: %s
-  # - NHS Number: %s
-  # - Date of Birth: %s
-  # - Age: %.0f
-  # - Sex: %s
-  # - Ethnicity: %s
-  # - Asthma Severity: %s
-
-  # CLINICAL METRICS
-  # - ACT Score: %.0f/25 (%s) [Previous: %.0f/25 (%s)]
-  # - FEV1: %.2fL (%.0f%%) (%s) [Previous: %.2fL (%.0f%%) (%s)]
-  # - FeNO: %.1f ppb (%s) [Previous: %.1f ppb (%s)]
-  # - Eosinophil Count: %.2f (%s) [Previous: %.2f (%s)]
-
-  # RISK FACTORS
-  # - BMI: %.1f
-  # - Smoking Status: %s
-  # - Current Risk Score: %.1f%%
-
-  # CURRENT TREATMENT
-  # %s',
-  #             latest$Name, latest$nhs_number,
-  #             format(as.Date(latest$birth_date), "%d/%m/%Y"),
-  #             as.numeric(latest$Age), latest$Sex, latest$Ethnicity,
-  #             latest$`Asthma Severity`,
-
-  #             as.numeric(latest$act_score),
-  #             format(as.Date(latest$review_date), "%d/%m/%Y"),
-  #             as.numeric(previous$act_score),
-  #             format(as.Date(previous$review_date), "%d/%m/%Y"),
-
-  #             latest$fev1_actual,
-  #             latest$fev1_percent_predicted,
-  #             format(as.Date(latest$review_date), "%d/%m/%Y"),
-  #             previous$fev1_actual,
-  #             previous$fev1_percent_predicted,
-  #             format(as.Date(previous$review_date), "%d/%m/%Y"),
-
-  #             latest$FeNO_ppb,
-  #             format(as.Date(latest$review_date), "%d/%m/%Y"),
-  #             previous$FeNO_ppb,
-  #             format(as.Date(previous$review_date), "%d/%m/%Y"),
-
-  #             latest$eosinophil_level,
-  #             format(as.Date(latest$review_date), "%d/%m/%Y"),
-  #             previous$eosinophil_level,
-  #             format(as.Date(previous$review_date), "%d/%m/%Y"),
-
-  #             latest$BMI,
-  #             latest$`Smoking Status`,
-  #             calculate_risk(latest),
-  #             latest$treatment
-  #         )
-
-  #         # Write to text file
-  #         writeLines(report_content, file)
-  #     }
-  # )
-
-  # Add this function before the server function
   generateReportContent <- function(latest, previous, format = "txt") {
     if (format == "html") {
       return(tags$div(
@@ -1520,7 +1360,6 @@ server <- function(input, output, session) {
         tags$p(HTML("<em>Created by Asthma Dashboard 1.0</em>"))
       ))
     } else {
-      # Text format
       sprintf(
         "PATIENT REPORT
 
@@ -1585,7 +1424,6 @@ Created by Asthma Dashboard 1.0
   }
 
 
-  # Then modify both the generate_report observer and download handler to use this function
   observeEvent(input$generate_report, {
     patient <- selected_patient()
     latest <- tail(patient, 1)
@@ -1618,5 +1456,4 @@ Created by Asthma Dashboard 1.0
   )
 }
 
-# Run the application
 shinyApp(ui = ui, server = server)

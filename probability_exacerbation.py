@@ -40,16 +40,3 @@ def estimate_exacerbation_risk(fev1_percent_pred, eosinophils, total_ige, asthma
     # Convert to probability using logistic function
     probability = 1 / (1 + np.exp(-log_odds))
     return probability
-
-# Example usage with given data
-probability = estimate_exacerbation_risk(
-    fev1_percent_pred=30.0,  # From provided data
-    eosinophils=100,  # From provided data
-    total_ige=20,  # From provided data
-    asthma_severity=2,  # Severe = 3, Moderate = 2, Mild = 1
-    smoking_status=[0,0,1], # One-hot encoded for current smoker
-    feno = 70.0, # From provided data
-    adherence=60.0  # From provided data
-)
-
-print(f"Estimated probability of exacerbation in next month: {probability:.2%}")

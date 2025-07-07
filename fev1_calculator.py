@@ -49,29 +49,16 @@ def calculate_fev1(patient):
     # Apply ethnicity correction factor
     fev1_predicted *= ETHNICITY_CORRECTION.get(ethnicity, 1.0)
 
-    # Commented out debugging print statements
-    # print(f"Predicted FEV1: {fev1_predicted}")
-
     # Get normal FEV1/FVC ratio based on sex and ethnicity
     fev1_fvc_ratio_normal = FEV1_FVC_RATIOS.get(sex, {}).get(ethnicity, 0.75)
 
-    # Commented out debugging print statements
-    # print(f"Normal FEV1/FVC Ratio: {fev1_fvc_ratio_normal}")
 
     # Apply asthma severity impact on FEV1/FVC
     fev1_fvc_ratio = max(MIN_FEV1_FVC_RATIO, fev1_fvc_ratio_normal + FEV1_FVC_REDUCTION.get(asthma_severity, 0))
 
-    # Commented out debugging print statements
-    # print(f"Adjusted FEV1/FVC Ratio: {fev1_fvc_ratio}")
 
     # Calculate actual FEV1 using predicted FEV1 and adjusted FEV1/FVC ratio
     fev1_actual = fev1_predicted * fev1_fvc_ratio
-
-    # Commented out debugging print statements
-    # print(f"Severity: {asthma_severity}")
-    # print(f"Actual FVC: {fvc_actual}")
-    # print(f"Actual FEV1: {fev1_actual}")
-    # print(f"Actual ratio: {fev1_actual/fvc_actual}")
 
     # Calculate FEV1 percent predicted
     fev1_percent_predicted = (fev1_actual / fev1_predicted) * 100
