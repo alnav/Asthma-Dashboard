@@ -1,6 +1,7 @@
 # Asthma Dashboard
 
 A clinical dashboard to enhance asthma care by providing data visualization and predictive analytics.
+[Click here to see it in action!](https://19545x-alessio-navarra.shinyapps.io/dashboard/)
 
 ## Features
 
