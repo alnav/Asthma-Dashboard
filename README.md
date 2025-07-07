@@ -37,7 +37,7 @@ pip install pandas numpy scikit-learn
 
 3. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/asthma-dashboard.git
+git clone https://github.com/alnav/Asthma-Dashboard
 ```
 
 4. Run the dashboard:
